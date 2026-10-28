@@ -1,7 +1,12 @@
 window.RX_I18N = {
   es: {
     tagline: "Libro de vuelo electrónico · AMC1 FCL.050",
-    year: "Año", reviewImport: "Revisar importación", impNew: "Nuevas", impSame: "Idénticas (ya en tu libro)", impFileDup: "Repetidas en el archivo",
+    year: "Año", backups: "Copias de seguridad", lastBackup: "Última copia", backupNever: "Aún no tienes ninguna copia de seguridad fuera del servidor",
+    backupOld: "Tu última copia de seguridad es de hace {n} días", backupHint: "Guarda una copia (Excel + JSON) en iCloud Drive o Archivos, o activa el envío automático por email.",
+    backupDevice: "Guardar copia en el dispositivo", backupSettings: "Configurar email", backupEmail: "Enviarme copia por email", backupFreq: "Frecuencia",
+    weekly: "Semanal (lunes)", monthly: "Mensual (primer lunes)", backupTo: "Enviar a", backupNow: "Enviar copia ahora",
+    backupInfo: "El email incluye CSV (re-importable), Excel y JSON (restauración completa). El email no es un canal cifrado de extremo a extremo.",
+    backupSent: "Copia enviada a", backupFail: "No se pudo enviar la copia.", reviewImport: "Revisar importación", impNew: "Nuevas", impSame: "Idénticas (ya en tu libro)", impFileDup: "Repetidas en el archivo",
     impProbable: "Probable duplicado", impFileProb: "Parecidas dentro del archivo", impHelp: "Revisa las filas marcadas. Por defecto se omiten las idénticas y los probables duplicados.",
     act_skip: "Omitir", act_keep: "Importar", act_replace: "Sustituir la existente", batches: "Importaciones", undo: "Deshacer", undone: "Deshecha",
     inLog: "en el libro", undoConfirm: "Se borrarán del libro las anotaciones de esta importación. Quedará en el historial.",
@@ -68,7 +73,12 @@ window.RX_I18N = {
   },
   en: {
     tagline: "Electronic pilot logbook · AMC1 FCL.050",
-    year: "Year", reviewImport: "Review import", impNew: "New", impSame: "Identical (already in logbook)", impFileDup: "Repeated in file",
+    year: "Year", backups: "Backups", lastBackup: "Last backup", backupNever: "You have no backup outside the server yet",
+    backupOld: "Your last backup is {n} days old", backupHint: "Save a copy (Excel + JSON) to iCloud Drive or Files, or enable automatic email backups.",
+    backupDevice: "Save copy to device", backupSettings: "Set up email", backupEmail: "Email me a backup", backupFreq: "Frequency",
+    weekly: "Weekly (Monday)", monthly: "Monthly (first Monday)", backupTo: "Send to", backupNow: "Send backup now",
+    backupInfo: "The email includes CSV (re-importable), Excel and JSON (full restore). Email is not an end-to-end encrypted channel.",
+    backupSent: "Backup sent to", backupFail: "The backup could not be sent.", reviewImport: "Review import", impNew: "New", impSame: "Identical (already in logbook)", impFileDup: "Repeated in file",
     impProbable: "Probable duplicate", impFileProb: "Similar within file", impHelp: "Review the flagged rows. Identical rows and probable duplicates are skipped by default.",
     act_skip: "Skip", act_keep: "Import", act_replace: "Replace existing", batches: "Imports", undo: "Undo", undone: "Undone",
     inLog: "in logbook", undoConfirm: "The entries of this import will be deleted from the logbook. It will be recorded in the history.",

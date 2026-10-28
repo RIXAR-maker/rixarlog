@@ -12,7 +12,9 @@
     "pic_name","ldg_day","ldg_night","to_day","to_night","night_min","ifr_min","pic_min","cop_min","dual_min","instr_min",
     "picus","pf","fstd_type","fstd_min","remarks","id"];
 
+  const markExport = () => { try { localStorage.setItem(`rx:${S().user.id}:lastExport`, new Date().toISOString()); } catch {} };
   function download(name, blob) {
+    markExport();
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
     document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
   }
@@ -30,14 +32,16 @@
     const lines = [FIELDS.join(",")].concat(S().entries.map((r) => rowOut(r).map(esc).join(",")));
     download(fileBase() + ".csv", new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" }));
   }
-  function exportJson() {
+  function exportJson(opts = {}) {
     const data = { app: "RIXARLOG", version: window.RX_CONFIG.version, exported_at: new Date().toISOString(),
       profile: S().profile, entries: S().entries, aircraft: S().aircraft, documents: S().documents };
-    download(fileBase() + ".json", new Blob([JSON.stringify(data, null, 1)], { type: "application/json" }));
+    const blob = new Blob([JSON.stringify(data, null, 1)], { type: "application/json" });
+    if (opts.file) return new File([blob], fileBase() + ".json", { type: "application/json" });
+    download(fileBase() + ".json", blob);
   }
 
   // ---------- Excel
-  function exportXlsx() {
+  function exportXlsx(opts = {}) {
     const X = window.XLSX;
     const head = ["Fecha","Tipo anot.","Salida","OFF UTC","Llegada","ON UTC","Tipo","Matrícula","SP SE","SP ME","MP","Total","PIC",
       "Aterr. día","Aterr. noche","Noche","IFR","PIC","Copiloto","Doble mando","Instructor","PICUS","FSTD tipo","FSTD","Observaciones"];
@@ -63,7 +67,9 @@
     const wb = X.utils.book_new();
     X.utils.book_append_sheet(wb, ws, "Logbook");
     X.utils.book_append_sheet(wb, X.utils.aoa_to_sheet(tot), "Totales");
-    X.writeFile(wb, fileBase() + ".xlsx");
+    if (opts.file) { const mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+      return new File([new Uint8Array(X.write(wb, { type: "array", bookType: "xlsx" }))], fileBase() + ".xlsx", { type: mime }); }
+    markExport(); X.writeFile(wb, fileBase() + ".xlsx");
   }
 
   // ---------- PDF EASA (AMC1 FCL.050)
@@ -129,7 +135,7 @@
       Object.keys(prev).forEach((f) => (prev[f] = grand[f]));
     }
     if (opts.blob) return doc.output("blob");
-    doc.save(fileBase() + "_EASA.pdf");
+    markExport(); doc.save(fileBase() + "_EASA.pdf");
   }
 
   // ---------- Informe para selección
@@ -285,6 +291,16 @@
     return m;
   }
 
-  window.RXIO = { exportCsv, exportJson, exportXlsx, exportPdf, selectionPdf, selectionText, selectionData,
+  // copia al dispositivo: menú compartir (iCloud Drive / Archivos) o descarga
+  async function saveToDevice() {
+    const files = [exportJson({ file: true }), exportXlsx({ file: true })];
+    if (navigator.canShare && navigator.canShare({ files })) {
+      try { await navigator.share({ files, title: "RIXARLOG backup" }); markExport(); return "shared"; }
+      catch (e) { if (e.name === "AbortError") return "cancel"; }
+    }
+    for (const f of files) download(f.name, f);
+    return "downloaded";
+  }
+  window.RXIO = { saveToDevice, exportCsv, exportJson, exportXlsx, exportPdf, selectionPdf, selectionText, selectionData,
     parseCsv, mapRows, guessMapping, normalize, parseDur, hm, hmBlank, hhmm, dmy, FIELDS, DUR };
 })();

@@ -14,7 +14,7 @@
   }
   const normFstd = (x) => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/I(?=A\d)/g, "1");
   const sig = (r) => [r.kind, r.date, r.kind === "FSTD" ? normFstd(r.fstd_type) : r.dep, String(r.off_time || "").slice(0, 5), r.arr,
-    String(r.on_time || "").slice(0, 5), r.kind === "FSTD" ? "" : r.registration, r.kind === "FSTD" ? r.fstd_min : r.total_min].join("|");
+    String(r.on_time || "").slice(0, 5), r.kind === "FSTD" ? String(r.remarks || "").trim().toUpperCase() : r.registration, r.kind === "FSTD" ? r.fstd_min : r.total_min].join("|");
   const overlapsI = (a, b) => a && b && a[0] < b[1] && b[0] < a[1];
   // ¿es b un duplicado probable de a?
   function probable(a, b) {

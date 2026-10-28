@@ -153,6 +153,7 @@
     current = v;
     document.body.className = document.body.className.replace(/\bv-\S+/g, "").trim() + " v-" + v;
     $$("nav a[data-v]").forEach((a) => a.classList.toggle("on", a.dataset.v === v));
+    $$(".overlay").forEach((o) => o.remove());
     const view = $("#view");
     const fn = VIEWS[v] || VIEWS.dashboard;
     view.innerHTML = ""; window.scrollTo(0, 0);
@@ -197,6 +198,9 @@
     let dismissed = false; try { dismissed = localStorage.getItem("rx:installDismissed") === "1"; } catch {}
     el.innerHTML = `
       ${isIOS && !standalone && !dismissed ? `<div class="panel install"><div><b>${t("installTitle")}</b><p class="fine">${t("installHint")}</p></div><button class="btn small" id="instX">✕</button></div>` : ""}
+      ${(() => { const lb = lastBackup(); if (!R.entries.length || (lb && lb.days < 30)) return "";
+        return `<div class="panel install"><div><b>${lb ? t("backupOld").replace("{n}", lb.days) : t("backupNever")}</b><p class="fine">${t("backupHint")}</p>
+          <div class="btnrow"><button class="btn small primary" id="bkDev">${t("backupDevice")}</button><a class="btn small" href="#settings">${t("backupSettings")}</a></div></div></div>`; })()}
       ${(() => { const n = openIssues().filter((x) => x.type !== "check").length; return n ? `<a class="panel install alert" href="#integrity"><div><b>${n} ${t("issuesOpen")}</b><p class="fine">${t("issuesHint")}</p></div><span class="chev">›</span></a>` : ""; })()}
       ${!R.entries.length ? `<div class="panel hero"><h2>${t("welcome")}</h2><p>${t("onboarding")}</p><p class="fine">${t("installHint")}</p>
         <a class="btn primary" href="#settings">${t("settings")}</a> <a class="btn" href="#entry/new">${t("newEntry")}</a></div>` : ""}
@@ -227,6 +231,7 @@
         </div>
         <div class="panel"><h3>${t("byType")}</h3><div class="chart"><canvas id="cType"></canvas></div></div>
       </section>`;
+    const bk = $("#bkDev"); if (bk) bk.addEventListener("click", saveDevice);
     const ix = $("#instX"); if (ix) ix.addEventListener("click", () => { try { localStorage.setItem("rx:installDismissed", "1"); } catch {} ix.parentElement.remove(); });
     // gráficos
     if (!window.Chart) return;
@@ -677,6 +682,15 @@
         <h4>${t("targets")}</h4>
         <div class="g5">${Object.keys(DEFAULT_TARGETS).map((k) => `<label>${k === "total" ? "Total" : k === "mp" ? "MP" : k === "pic" ? "PIC" : k === "night" ? t("night") : "IFR"} (h)<input type="number" min="0" data-tg="${k}" value="${tg[k]}"></label>`).join("")}</div>
         <button class="btn primary" id="saveP">${t("save")}</button></div>
+      <div class="panel"><h3>${t("backups")}</h3>
+        <p class="fine">${(() => { const lb = lastBackup(); return lb ? `${t("lastBackup")}: ${new Date(lb.at).toLocaleString(lang)} (${lb.days} ${t("daysLeft")})` : t("backupNever"); })()}</p>
+        <div class="g3">
+          <label class="tg"><input type="checkbox" id="bkOn" ${(s.backup || {}).enabled ? "checked" : ""}> ${t("backupEmail")}</label>
+          <label>${t("backupFreq")}<select id="bkFreq"><option value="weekly">${t("weekly")}</option><option value="monthly">${t("monthly")}</option></select></label>
+          <label>${t("backupTo")}<input id="bkTo" type="email" placeholder="${h(R.user.email)}" value="${h((s.backup || {}).email || "")}"></label>
+        </div>
+        <p class="fine">${t("backupInfo")}</p>
+        <div class="btnrow"><button class="btn primary" id="bkSave">${t("save")}</button><button class="btn" id="bkNow">${t("backupNow")}</button><button class="btn" id="bkDev2">${t("backupDevice")}</button></div></div>
       <div class="panel"><h3>${t("exportT")}</h3>
         <div class="btnrow"><button class="btn" id="xPdf">${t("exportPdf")}</button><button class="btn" id="xXlsx">${t("exportXlsx")}</button>
           <button class="btn" id="xCsv">${t("exportCsv")}</button><button class="btn" id="xJson">${t("exportJson")}</button></div></div>
@@ -690,6 +704,12 @@
         <p class="fine"><a href="#" id="privS">${t("privacy")}</a> · RIXARLOG v${window.RX_CONFIG.version}</p></div>`;
     $("#privS").addEventListener("click", (e) => { e.preventDefault(); showPrivacy(); });
     drawBatches();
+    $("#bkFreq").value = (s.backup || {}).freq || "weekly";
+    $("#bkSave").addEventListener("click", async () => {
+      await R.saveProfile({ settings: { ...st(), backup: { enabled: $("#bkOn").checked, freq: $("#bkFreq").value, email: $("#bkTo").value.trim() || null } } });
+      toast(t("savedOk"), "ok"); });
+    $("#bkNow").addEventListener("click", (e) => sendBackupNow(e.currentTarget));
+    $("#bkDev2").addEventListener("click", saveDevice);
     $("#lg").value = p.lang || lang;
     $$("[data-th]", el).forEach((b) => b.addEventListener("click", async () => { setTheme(b.dataset.th); $$("[data-th]", el).forEach((x) => x.classList.toggle("on", x === b)); await R.saveProfile({ theme: b.dataset.th }); }));
     $("#lg").addEventListener("change", async (e) => { setLang(e.target.value); await R.saveProfile({ lang: e.target.value }); shell(); route(); });
@@ -787,6 +807,27 @@
       }));
     } catch (e) { el.textContent = e.message; }
   }
+
+  // ---------- COPIAS DE SEGURIDAD
+  const lastBackup = () => {
+    let l = null; try { l = localStorage.getItem(`rx:${R.user.id}:lastExport`); } catch {}
+    const srv = R.profile && R.profile.last_backup_at;
+    const d = [l, srv].filter(Boolean).sort().pop();
+    return d ? { at: d, days: Math.floor((Date.now() - Date.parse(d)) / 864e5) } : null;
+  };
+  async function sendBackupNow(btn) {
+    if (!navigator.onLine) { alert(t("offline")); return; }
+    btn && (btn.disabled = true);
+    try {
+      const { data, error } = await sb.functions.invoke("backup-email", { body: {} });
+      if (error) { let m = error.message; try { const j = await error.context.json(); m = j.error || m; } catch {} throw new Error(m); }
+      if (data && data.error) throw new Error(data.error);
+      R.profile.last_backup_at = new Date().toISOString();
+      toast(t("backupSent") + " " + data.sent[0].email, "ok");
+    } catch (e) { alert(t("backupFail") + "\n" + e.message); }
+    btn && (btn.disabled = false);
+  }
+  async function saveDevice() { const r = await IO.saveToDevice(); if (r !== "cancel") toast(t("savedOk"), "ok"); route(); }
 
   // ---------- INTEGRIDAD
   const pairKey = (rows) => rows.map((r) => r.id).sort().join("+");
