@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="es" data-theme="ecam">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RIXARLOG</title>
+<meta name="description" content="Libro de vuelo electrónico EASA (AMC1 FCL.050) con sincronización en la nube">
+<meta name="theme-color" content="#0a0e13">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="RIXARLOG">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=B612:wght@400;700&family=B612+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<script>try{document.documentElement.dataset.theme=localStorage.getItem("rx:theme")||"ecam"}catch(e){}</script>
+</head>
+<body class="auth">
+<div id="app"><div class="auth-wrap"><div class="brand big"><img src="icons/icon-192.png" alt=""><div><b>RIXARLOG</b></div></div></div></div>
+<script src="vendor/supabase.js"></script>
+<script src="vendor/chart.umd.js"></script>
+<script src="vendor/jspdf.umd.min.js"></script>
+<script src="vendor/jspdf.plugin.autotable.min.js"></script>
+<script src="vendor/xlsx.mini.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/sun.js"></script>
+<script src="js/store.js"></script>
+<script src="js/io.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
