@@ -5,7 +5,7 @@
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
   });
   const S = {
-    sb, user: null, profile: null, entries: [], aircraft: [], documents: [],
+    sb, user: null, profile: null, entries: [], aircraft: [], documents: [], signatures: [],
     listeners: new Set(), status: "synced", channel: null,
   };
   const ENTRY_COLS = ["id","kind","date","dep","off_time","arr","on_time","ac_type","registration","se_min","me_min","mp_min",
@@ -25,7 +25,7 @@
       ((a.kind === "FSTD" ? "99" : a.off_time || "98")).localeCompare(b.kind === "FSTD" ? "99" : b.off_time || "98") ||
       (a.created_at || "").localeCompare(b.created_at || "") || (a.id || "").localeCompare(b.id || ""));
   };
-  const cache = () => { lsSet("entries", S.entries); lsSet("aircraft", S.aircraft); lsSet("documents", S.documents); lsSet("profile", S.profile); };
+  const cache = () => { lsSet("entries", S.entries); lsSet("aircraft", S.aircraft); lsSet("documents", S.documents); lsSet("signatures", S.signatures); lsSet("profile", S.profile); };
 
   async function fetchAll(table, order) {
     const out = []; const step = 1000;
@@ -42,7 +42,7 @@
 
   S.init = async (user) => {
     S.user = user;
-    S.entries = lsGet("entries", []); S.aircraft = lsGet("aircraft", []); S.documents = lsGet("documents", []);
+    S.entries = lsGet("entries", []); S.aircraft = lsGet("aircraft", []); S.documents = lsGet("documents", []); S.signatures = lsGet("signatures", []);
     S.profile = lsGet("profile", null);
     S.sortEntries(); emit();
     await S.refresh();
@@ -54,13 +54,13 @@
     if (!navigator.onLine) { S.setStatus("offline"); return; }
     try {
       S.setStatus("syncing");
-      const [p, e, a, d] = await Promise.all([
+      const [p, e, a, d, sg] = await Promise.all([
         sb.from("profiles").select("*").eq("id", S.user.id).maybeSingle(),
-        fetchAll("entries", "date"), fetchAll("aircraft", "registration"), fetchAll("documents", "expires"),
+        fetchAll("entries", "date"), fetchAll("aircraft", "registration"), fetchAll("documents", "expires"), fetchAll("signatures", "signed_at"),
       ]);
       if (p.error) throw p.error;
       S.profile = p.data || { id: S.user.id, settings: {} };
-      S.entries = e; S.aircraft = a; S.documents = d;
+      S.entries = e; S.aircraft = a; S.documents = d; S.signatures = sg;
       applyOutboxLocally();
       S.sortEntries(); cache();
       S.setStatus(S.outbox().length ? "pending" : "synced");
@@ -74,7 +74,7 @@
     if (S.channel) sb.removeChannel(S.channel);
     const uid = S.user.id;
     S.channel = sb.channel("rx-" + uid);
-    for (const [table, arr] of [["entries", "entries"], ["aircraft", "aircraft"], ["documents", "documents"]]) {
+    for (const [table, arr] of [["entries", "entries"], ["aircraft", "aircraft"], ["documents", "documents"], ["signatures", "signatures"]]) {
       S.channel.on("postgres_changes", { event: "*", schema: "public", table, filter: `user_id=eq.${uid}` }, (ev) => {
         const list = S[arr];
         if (ev.eventType === "DELETE") {
@@ -183,6 +183,24 @@
     for (let i = 0; i < ids.length; i += 200) { const { error } = await sb.from("entries").delete().in("id", ids.slice(i, i + 200)); if (error) throw error; }
   };
   let profileChain = Promise.resolve();
+  // huella del contenido de una anotación: si cambia después de firmar, la firma queda invalidada
+  const HASH_FIELDS = ["kind","date","dep","off_time","arr","on_time","ac_type","registration","se_min","me_min","mp_min","total_min","pic_name",
+    "ldg_day","ldg_night","night_min","ifr_min","pic_min","cop_min","dual_min","instr_min","picus","fstd_type","fstd_min","remarks"];
+  S.entryHash = async (r) => {
+    const canon = HASH_FIELDS.map((k) => { let v = r[k]; if (k.endsWith("_time") && v) v = String(v).slice(0, 5);
+      if (k === "picus") v = !!v; if (v == null || v === "") v = k.endsWith("_min") || k.startsWith("ldg") ? 0 : ""; return v; }).join("|");
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canon));
+    return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  };
+  S.sigsFor = (id) => S.signatures.filter((x) => x.entry_id === id);
+  S.sign = async (entries, signer, image) => {
+    const rows = [];
+    for (const e of entries) rows.push({ id: uuid(), user_id: S.user.id, entry_id: e.id, signer_name: signer.name, signer_role: signer.role || null,
+      signer_licence: signer.licence || null, image, entry_hash: await S.entryHash(e), signed_at: new Date().toISOString() });
+    const { error } = await sb.from("signatures").insert(rows); if (error) throw error;
+    for (const r of rows) if (!S.signatures.find((x) => x.id === r.id)) S.signatures.push(r);
+    cache(); emit(); return rows.length;
+  };
   S.saveProfile = (patch) => {
     S.profile = { ...S.profile, ...patch }; cache(); emit();
     // en serie: el servidor recibe los cambios en el mismo orden en que se hicieron

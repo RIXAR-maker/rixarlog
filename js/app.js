@@ -124,6 +124,7 @@
     ["reports", "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 7V3.5L18.5 9H13z"],
     ["docs", "M12 2a10 10 0 100 20 10 10 0 000-20zm1 11h-5v-2h3V6h2v7z"],
     ["aircraft", "M21 16v-2l-8-5V3.5a1.5 1.5 0 00-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"],
+    ["wrapped", "M12 2l2.9 6.9L22 9.3l-5.4 4.7L18.2 21 12 17.3 5.8 21l1.6-7L2 9.3l7.1-.4z"],
     ["integrity", "M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"],
     ["history", "M13 3a9 9 0 00-9 9H1l4 4 4-4H6a7 7 0 112.05 4.95l-1.42 1.42A9 9 0 1013 3zm-1 5v5l4.25 2.52.77-1.28-3.52-2.09V8H12z"],
     ["settings", "M19.4 13a7.5 7.5 0 000-2l2.1-1.6-2-3.5-2.5 1a7.6 7.6 0 00-1.7-1L15 3h-4l-.3 2.9a7.6 7.6 0 00-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 000 2l-2.1 1.6 2 3.5 2.5-1a7.6 7.6 0 001.7 1L11 21h4l.3-2.9a7.6 7.6 0 001.7-1l2.5 1 2-3.5-2.1-1.6zM13 15.5a3.5 3.5 0 110-7 3.5 3.5 0 010 7z"],
@@ -178,7 +179,7 @@
   window.addEventListener("hashchange", route);
   let rerenderTimer;
   R.on(() => { clearTimeout(rerenderTimer); rerenderTimer = setTimeout(() => {
-    if (["dashboard", "logbook", "totals", "reports", "docs", "aircraft", "integrity"].includes(current) && !document.querySelector(".overlay")) route();
+    if (["dashboard", "logbook", "totals", "reports", "docs", "aircraft", "integrity", "wrapped"].includes(current) && !document.querySelector(".overlay")) route();
     syncBadge(); }, 150); });
   document.addEventListener("rx-profile", () => { applyProfile(); });
 
@@ -231,6 +232,7 @@
         ${tile(t("last12"), hm(l12.total_min), "")}
         ${tile(t("lastFlight"), last ? dmy(last.date) : "—", last ? h(`${last.dep}–${last.arr} · ${last.ac_type}`) : "")}
       </section>
+      ${R.entries.some((r) => r.kind === "FLT") ? `<a class="panel wrap-link" href="#wrapped"><span>★</span><div><b>${t("yourYear")} ${todayISO().slice(0, 4)}</b><small>${t("wrapHint")}</small></div><span class="chev">›</span></a>` : ""}
       <div class="panel"><div class="fhead"><h3>${t("routeMap")}</h3>
         <div class="seg small" id="mapP">${[["all", t("all")], ["365", t("last12")], ["year", t("thisYear")]].map(([k, l]) => `<button data-mp="${k}" class="${mapPeriod === k ? "on" : ""}">${l}</button>`).join("")}</div></div>
         <div id="rmap" class="rmap"></div><p class="fine" id="rmapInfo"></p></div>
@@ -281,6 +283,66 @@
 
   // ---------- LIBRO
   let logFilter = { kind: "all", q: "", year: "", limit: 150 };
+  // ---------- FIRMAS
+  async function sigState(r) {
+    const L = R.sigsFor(r.id); if (!L.length) return null;
+    const hsh = await R.entryHash(r); const valid = L.filter((x) => x.entry_hash === hsh).length;
+    return { n: L.length, valid, invalid: L.length - valid };
+  }
+  function pad(canvas) {
+    const dpr = window.devicePixelRatio || 1; let drawing = false, empty = true, last = null;
+    const fit = () => { const w = canvas.clientWidth, hh2 = canvas.clientHeight; canvas.width = w * dpr; canvas.height = hh2 * dpr;
+      const c = canvas.getContext("2d"); c.scale(dpr, dpr); c.lineWidth = 2.2; c.lineCap = "round"; c.lineJoin = "round"; c.strokeStyle = "#0b1f3a"; };
+    fit();
+    const pos = (e) => { const b = canvas.getBoundingClientRect(); return [e.clientX - b.left, e.clientY - b.top]; };
+    canvas.addEventListener("pointerdown", (e) => { drawing = true; last = pos(e); canvas.setPointerCapture(e.pointerId); e.preventDefault(); });
+    canvas.addEventListener("pointermove", (e) => { if (!drawing) return; const c = canvas.getContext("2d"); const p2 = pos(e);
+      c.beginPath(); c.moveTo(last[0], last[1]); c.lineTo(p2[0], p2[1]); c.stroke(); last = p2; empty = false; e.preventDefault(); });
+    const up = () => { drawing = false; }; canvas.addEventListener("pointerup", up); canvas.addEventListener("pointercancel", up);
+    return {
+      clear: () => { canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height); empty = true; },
+      isEmpty: () => empty,
+      data: () => { const o = document.createElement("canvas"); o.width = 600; o.height = Math.round(600 * canvas.height / canvas.width);
+        o.getContext("2d").drawImage(canvas, 0, 0, o.width, o.height); return o.toDataURL("image/png"); },
+    };
+  }
+  const ROLES = ["PIC", "TRI", "TRE", "SFI", "SFE", "FI", "FE", "CRI", "IRI", "Commander", "Other"];
+  function signModal(entries, done, opts = {}) {
+    const one = entries && entries.length === 1 ? entries[0] : null;
+    modal(`<h3>${opts.self ? t("mySignature") : t("signTitle")}</h3>
+      ${opts.self ? `<p class="fine">${t("mySigHint")}</p>` : `<p class="fine">${entries.length} ${t("entries")}${one ? " · " + h(desc(one)) : ""}</p>
+      <div class="g2"><label>${t("signerName")}<input id="sgN" value="${one && one.pic_name && one.pic_name !== "SELF" ? h(one.pic_name) : ""}" autocomplete="name"></label>
+        <label>${t("signerRole")}<select id="sgR">${ROLES.map((x) => `<option>${x}</option>`).join("")}</select></label></div>
+      <label>${t("signerLic")}<input id="sgL" placeholder="ESP.FCL.000…"></label>`}
+      <div class="padwrap"><canvas id="pad"></canvas><span class="padhint">${t("signHere")}</span></div>
+      <div class="btnrow"><button class="btn small" id="padClr">${t("clear")}</button></div>
+      ${opts.self ? "" : `<p class="fine">${t("signLegal")}</p>`}
+      <p class="msg err" id="sgE"></p>
+      <div class="factions"><span class="grow"></span><button class="btn" data-close>${t("cancel")}</button><button class="btn primary" id="sgGo">${opts.self ? t("save") : t("sign")}</button></div>`,
+    (o, close) => {
+      const P = pad($("#pad", o));
+      $("#pad", o).addEventListener("pointerdown", () => { const hnt = $(".padhint", o); if (hnt) hnt.remove(); });
+      $("#padClr", o).addEventListener("click", () => P.clear());
+      $("#sgGo", o).addEventListener("click", async () => {
+        if (P.isEmpty()) { $("#sgE", o).textContent = t("signEmpty"); return; }
+        if (opts.self) { await R.saveProfile({ signature: P.data() }); close(); toast(t("savedOk"), "ok"); done && done(); return; }
+        const name = $("#sgN", o).value.trim(); if (!name) { $("#sgE", o).textContent = t("signName"); return; }
+        if (!navigator.onLine) { $("#sgE", o).textContent = t("offline"); return; }
+        $("#sgGo", o).disabled = true;
+        try { const n = await R.sign(entries, { name, role: $("#sgR", o).value, licence: $("#sgL", o).value.trim() }, P.data());
+          close(); toast(`${n} ${t("signedN")}`, "ok"); done && done(); }
+        catch (e) { $("#sgE", o).textContent = e.message; $("#sgGo", o).disabled = false; }
+      });
+    });
+  }
+  const sigIcon = (r) => R.sigsFor(r.id).length ? `<span class="sigb" data-sig="${r.id}" title="${t("signed")}">✍</span>` : "";
+  async function paintSigBadges(root) {
+    for (const b of $$("[data-sig]", root)) { const r = R.entries.find((x) => x.id === b.dataset.sig); if (!r) continue;
+      const st2 = await sigState(r); if (!st2) continue; b.classList.add(st2.invalid ? "bad" : "good");
+      b.title = st2.invalid ? t("sigInvalid") : `${t("signed")} (${st2.valid})`; }
+  }
+
+  let selMode = false; const sel = new Set();
   VIEWS.logbook = (el) => {
     const years = [...new Set(R.entries.map((r) => r.date.slice(0, 4)))].sort().reverse();
     el.innerHTML = `
@@ -289,8 +351,11 @@
         <select id="yr" aria-label="${t("year")}"><option value="">${t("year")}: ${t("all").toLowerCase()}</option>${years.map((y) => `<option ${y === logFilter.year ? "selected" : ""}>${y}</option>`).join("")}</select>
         <input id="q" type="search" placeholder="${t("search")}" value="${h(logFilter.q)}">
         <button class="btn" id="pdfBtn">PDF EASA</button>
+        <button class="btn ${selMode ? "primary" : ""}" id="signMode">✍ ${t("signMany")}</button>
       </div>
-      <div id="list"></div>`;
+      ${selMode ? `<p class="fine">${t("selectHint")}</p>` : ""}
+      <div id="list"></div>
+      <div id="selBar" class="selbar" ${selMode ? "" : "hidden"}><span id="selN"></span><button class="btn" id="selX">${t("cancel")}</button><button class="btn primary" id="selGo">✍ ${t("sign")}</button></div>`;
     const draw = () => {
       const q = logFilter.q.toLowerCase();
       let rows = R.entries.filter((r) => (logFilter.kind === "all" || r.kind === logFilter.kind) && (!logFilter.year || r.date.startsWith(logFilter.year)) &&
@@ -307,29 +372,40 @@
           <tbody>${withHeads(rowHtml, (k) => `<tr class="mhead"><td colspan="13"><span>${h(mlabel(k))}</span><span>${msum(k)}</span></td></tr>`)}</tbody></table>
         <div class="cards">${withHeads(cardHtml, (k) => `<div class="mhead"><span>${h(mlabel(k))}</span><span>${msum(k)}</span></div>`)}</div>
         ${n > rows.length ? `<button class="btn wide" id="more">${t("loadMore")} (${rows.length}/${n})</button>` : `<p class="fine center">${n} ${t("entries")}</p>`}`;
-      $$("[data-id]", el).forEach((x) => x.addEventListener("click", () => (location.hash = "#entry/" + x.dataset.id)));
+      $$("[data-id]", el).forEach((x) => { if (sel.has(x.dataset.id)) x.classList.add("picked");
+        x.addEventListener("click", () => {
+          if (!selMode) { location.hash = "#entry/" + x.dataset.id; return; }
+          const id = x.dataset.id; if (sel.has(id)) sel.delete(id); else sel.add(id);
+          $$(`[data-id="${id}"]`, el).forEach((y) => y.classList.toggle("picked", sel.has(id))); updSel();
+        }); });
       const m = $("#more"); if (m) m.addEventListener("click", () => { logFilter.limit += 300; draw(); });
+      paintSigBadges(el);
     };
     $$(".seg button", el).forEach((b) => b.addEventListener("click", () => { logFilter.kind = b.dataset.k; VIEWS.logbook(el); }));
     $("#yr").addEventListener("change", (e) => { logFilter.year = e.target.value; draw(); });
     $("#q").addEventListener("input", (e) => { logFilter.q = e.target.value; draw(); });
     $("#pdfBtn").addEventListener("click", () => IO.exportPdf());
+    const updSel = () => { $("#selN").textContent = `${sel.size} ${t("selected")}`; $("#selGo").disabled = !sel.size; };
+    $("#signMode").addEventListener("click", () => { selMode = !selMode; sel.clear(); VIEWS.logbook(el); });
+    $("#selX").addEventListener("click", () => { selMode = false; sel.clear(); VIEWS.logbook(el); });
+    $("#selGo").addEventListener("click", () => signModal(R.entries.filter((r) => sel.has(r.id)), () => { selMode = false; sel.clear(); VIEWS.logbook(el); }));
+    updSel();
     draw();
   };
   const roleOf = (r) => r.kind === "FSTD" ? "FSTD" : r.instr_min ? "INS" : r.picus ? "PICUS" : r.pic_min ? "PIC" : r.cop_min ? "COP" : r.dual_min ? "DUAL" : "—";
   const chk = (r) => { const e = R.checks(r); return e.length ? `<span class="warn" title="${h(e.map(t).join(" · "))}">!</span>` : `<span class="okmark">✓</span>`; };
   function rowHtml(r) {
-    if (r.kind === "FSTD") return `<tr data-id="${r.id}" class="fstd"><td>${dmy(r.date)}</td><td colspan="4"><b>FSTD</b> ${h(r.fstd_type || "")}</td><td class="num">${hm(r.fstd_min)}</td><td>FSTD</td><td colspan="4"></td><td class="rem">${h(r.remarks || "")}</td><td>${chk(r)}</td></tr>`;
+    if (r.kind === "FSTD") return `<tr data-id="${r.id}" class="fstd"><td>${dmy(r.date)}</td><td colspan="4"><b>FSTD</b> ${h(r.fstd_type || "")}</td><td class="num">${hm(r.fstd_min)}</td><td>FSTD</td><td colspan="4"></td><td class="rem">${h(r.remarks || "")}</td><td>${chk(r)}${sigIcon(r)}</td></tr>`;
     return `<tr data-id="${r.id}"><td>${dmy(r.date)}</td><td>${h(r.dep || "")} <small>${hh(r.off_time)}</small></td><td>${h(r.arr || "")} <small>${hh(r.on_time)}</small></td>
       <td>${h(r.ac_type || "")}</td><td>${h(r.registration || "")}</td><td class="num">${hm(r.total_min)}</td><td><span class="role ${roleOf(r)}">${roleOf(r)}</span></td>
       <td>${h(r.pic_name || "")}</td><td class="num">${hmB(r.night_min)}</td><td class="num">${hmB(r.ifr_min)}</td><td class="num">${(r.ldg_day || 0) + (r.ldg_night || 0) || ""}</td>
-      <td class="rem">${h(r.remarks || "")}</td><td>${chk(r)}</td></tr>`;
+      <td class="rem">${h(r.remarks || "")}</td><td>${chk(r)}${sigIcon(r)}</td></tr>`;
   }
   function cardHtml(r) {
-    if (r.kind === "FSTD") return `<div class="card fstd" data-id="${r.id}"><div class="c1"><b>${dmy(r.date)}</b><span class="role FSTD">FSTD</span><b class="num">${hm(r.fstd_min)}</b></div>
+    if (r.kind === "FSTD") return `<div class="card fstd" data-id="${r.id}"><div class="c1"><b>${dmy(r.date)}</b><span class="role FSTD">FSTD</span>${sigIcon(r)}<b class="num">${hm(r.fstd_min)}</b></div>
       <div class="c2">${h(r.fstd_type || "")}</div><div class="c3">${h(r.remarks || "")}</div></div>`;
     return `<div class="card" data-id="${r.id}"><div class="c1"><b>${dmy(r.date)}</b><span class="route">${h(r.dep || "")} → ${h(r.arr || "")}</span><b class="num">${hm(r.total_min)}</b></div>
-      <div class="c2"><span>${h(r.ac_type || "")} · ${h(r.registration || "")}</span><span class="role ${roleOf(r)}">${roleOf(r)}</span>${chk(r)}</div>
+      <div class="c2"><span>${h(r.ac_type || "")} · ${h(r.registration || "")}</span><span class="role ${roleOf(r)}">${roleOf(r)}</span>${chk(r)}${sigIcon(r)}</div>
       <div class="c3">${hh(r.off_time)}–${hh(r.on_time)} · ${h(r.pic_name || "")}${r.night_min ? " · ☾ " + hm(r.night_min) : ""}${r.ifr_min ? " · IFR " + hm(r.ifr_min) : ""}</div></div>`;
   }
 
@@ -357,6 +433,7 @@
           <div class="seg">${["FLT", "FSTD"].map((k) => `<button type="button" data-kind="${k}" class="${r.kind === k ? "on" : ""}">${k === "FLT" ? t("flight") : "FSTD"}</button>`).join("")}</div></div>
         <div id="fbody"></div>
         <div class="checks" id="checks"></div>
+        ${isNew ? "" : `<div class="sigs" id="sigs"></div>`}
         <div class="factions">
           ${!isNew ? `<button type="button" class="btn danger" id="del">${t("del")}</button>` : ""}
           <span class="grow"></span>
@@ -548,7 +625,20 @@
         if (location.hash === "#entry/new") route(); else location.hash = "#entry/new"; return; }
       location.hash = "#logbook";
     });
+    async function drawSigs() {
+      const box = $("#sigs"); if (!box) return;
+      const L = R.sigsFor(id); const cur = await R.entryHash(old);
+      box.innerHTML = `<div class="fhead"><h4>${t("signatures")}</h4><button type="button" class="btn small" id="sgAdd">✍ ${t("sign")}</button></div>
+        ${L.length ? L.map((x) => `<div class="sigrow ${x.entry_hash === cur ? "" : "bad"}"><img src="${x.image}" alt=""><div><b>${h(x.signer_name)}</b>
+          <small>${h(x.signer_role || "")} ${h(x.signer_licence || "")} · ${new Date(x.signed_at).toLocaleString(lang)}</small>
+          <small class="${x.entry_hash === cur ? "green" : "red"}">${x.entry_hash === cur ? "✓ " + t("sigValid") : "✗ " + t("sigInvalid")}</small></div>
+          <button type="button" class="btn small danger" data-sdel="${x.id}">✕</button></div>`).join("") : `<p class="fine">${t("noSignatures")}</p>`}
+        ${L.some((x) => x.entry_hash === cur) ? `<p class="fine amber">${t("editVoids")}</p>` : ""}`;
+      $("#sgAdd").addEventListener("click", () => signModal([R.entries.find((x) => x.id === id)], drawSigs));
+      $$("[data-sdel]", box).forEach((b) => b.addEventListener("click", async () => { if (!confirm(t("sigDelConfirm"))) return; await R.remove("signatures", b.dataset.sdel); drawSigs(); }));
+    }
     drawBody();
+    if (!isNew) drawSigs();
   };
 
   // ---------- TOTALES
@@ -667,7 +757,7 @@
   VIEWS.history = async (el) => {
     el.innerHTML = `<div class="panel"><h3>${t("history")}</h3><p class="fine">${t("historyTxt")}</p><div id="hl" class="hist"></div><button class="btn wide" id="hm">${t("loadMore")}</button></div>`;
     let last = null;
-    const label = (d) => d ? (d.kind === "FSTD" ? `FSTD ${dmy(d.date)} ${d.fstd_type || ""}` : d.date ? `${dmy(d.date)} ${d.dep || ""}–${d.arr || ""} ${d.registration || ""}` : d.registration || d.kind || d.name || "") : "";
+    const label = (d) => d && d.signer_name ? `✍ ${d.signer_name} ${d.signer_role || ""}` : d ? (d.kind === "FSTD" ? `FSTD ${dmy(d.date)} ${d.fstd_type || ""}` : d.date ? `${dmy(d.date)} ${d.dep || ""}–${d.arr || ""} ${d.registration || ""}` : d.registration || d.kind || d.name || "") : "";
     const diff = (a, b) => !a || !b ? "" : Object.keys(b).filter((k) => !["updated_at", "created_at"].includes(k) && JSON.stringify(a[k]) !== JSON.stringify(b[k]))
       .map((k) => { const f = (x) => x == null ? "∅" : k.endsWith("_min") ? hm(x) : x; return `<code>${h(k)}</code> ${h(f(a[k]))} → <b>${h(f(b[k]))}</b>`; }).join(" · ");
     const load = async () => {
@@ -708,7 +798,9 @@
           <label>${t("licenceType")}<input id="lt" value="${h(p.licence_type || "")}" placeholder="ATPL(A) / CPL(A)"></label>
           <label>${t("licenceNo")}<input id="ln" value="${h(p.licence_number || "")}" placeholder="ESP.FCL.000…"></label>
           <label>${t("homeBase")}<input id="hb" value="${h(p.home_base || "")}" maxlength="4" style="text-transform:uppercase" placeholder="LEMD"></label>
-        </div></div>
+        </div>
+        <h4>${t("mySignature")}</h4>
+        <div class="mysig">${p.signature ? `<img src="${p.signature}" alt="">` : `<span class="fine">${t("noMySig")}</span>`}<button class="btn small" id="mySig">✍ ${p.signature ? t("redraw") : t("draw")}</button></div></div>
       <div class="panel"><h3>${t("defaults")}</h3>
         <div class="g3">
           <label>${t("defRole")}<select id="dr">${[["pic", "PIC"], ["cop", t("cop")], ["dual", t("dual")], ["instr", t("instr")]].map(([k, l]) => `<option value="${k}" ${(s.defRole || "pic") === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
@@ -740,6 +832,7 @@
         <p class="fine"><a href="#" id="privS">${t("privacy")}</a> · RIXARLOG v${window.RX_CONFIG.version}</p></div>`;
     $("#privS").addEventListener("click", (e) => { e.preventDefault(); showPrivacy(); });
     drawBatches();
+    $("#mySig").addEventListener("click", () => signModal(null, () => route(), { self: true }));
     $("#bkFreq").value = (s.backup || {}).freq || "weekly";
     $("#bkSave").addEventListener("click", async () => {
       await R.saveProfile({ settings: { ...st(), backup: { enabled: $("#bkOn").checked, freq: $("#bkFreq").value, email: $("#bkTo").value.trim() || null } } });
@@ -898,6 +991,82 @@
     $$("[data-delb]", el).forEach((b) => b.addEventListener("click", async () => { if (!confirm(t("confirmDel"))) return; await R.remove("entries", b.dataset.delb); route(); }));
     const u = $("#unrev"); if (u) u.addEventListener("click", async (e) => { e.preventDefault(); await R.saveProfile({ settings: { ...st(), reviewed: [] } }); route(); });
   };
+
+  // ---------- RESUMEN ANUAL (Wrapped)
+  const nmDist = (a, b) => { const A = apt(a), B = apt(b); if (!A || !B) return 0; const [la1, lo1, la2, lo2] = [A[1], A[2], B[1], B[2]].map((x) => x * Math.PI / 180);
+    return 2 * 3440.065 * Math.asin(Math.sqrt(Math.sin((la2 - la1) / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin((lo2 - lo1) / 2) ** 2)); };
+  function wrapData(year) {
+    const inY = (r) => r.date.startsWith(String(year));
+    const F = R.entries.filter((r) => r.kind === "FLT" && inY(r)), X = R.entries.filter((r) => r.kind === "FSTD" && inY(r));
+    const before = new Set(R.entries.filter((r) => r.kind === "FLT" && r.date < year + "-01-01").flatMap((r) => [r.dep, r.arr]));
+    const apts = new Set(F.flatMap((r) => [r.dep, r.arr]).filter(Boolean));
+    const top = (keyf, L = F) => { const m = new Map(); for (const r of L) { const k = keyf(r); if (!k) continue; m.set(k, (m.get(k) || 0) + 1); } return [...m].sort((a, b) => b[1] - a[1])[0] || null; };
+    const dist = F.reduce((a, r) => a + (r.dep && r.arr && r.dep !== r.arr ? nmDist(r.dep, r.arr) : 0), 0);
+    const byMonth = new Map(); for (const r of F) { const k = r.date.slice(5, 7); byMonth.set(k, (byMonth.get(k) || 0) + (r.total_min || 0)); }
+    const bm = [...byMonth].sort((a, b) => b[1] - a[1])[0];
+    const longest = F.slice().sort((a, b) => (b.total_min || 0) - (a.total_min || 0))[0];
+    const far = F.slice().sort((a, b) => nmDist(b.dep, b.arr) - nmDist(a.dep, a.arr))[0];
+    const tt = R.totals([...F, ...X]);
+    return { year, F, X, tt, dist, apts, newApts: [...apts].filter((a) => !before.has(a)), countries: new Set([...apts].map((a) => (apt(a) || [])[3]).filter(Boolean)),
+      route: top((r) => r.dep && r.arr && r.dep !== r.arr ? [r.dep, r.arr].sort().join(" ⇄ ") : null), reg: top((r) => r.registration), type: top((r) => r.ac_type),
+      capt: top((r) => r.pic_name && r.pic_name !== "SELF" ? r.pic_name : null), month: bm, longest, far,
+      first: F[0], last: F[F.length - 1], days: new Set(F.map((r) => r.date)).size };
+  }
+  const monthName = (m) => new Date(`2000-${m}-01T00:00:00Z`).toLocaleDateString(lang, { month: "long", timeZone: "UTC" });
+  let wrapYear = null;
+  VIEWS.wrapped = (el) => {
+    const years = [...new Set(R.entries.filter((r) => r.kind === "FLT").map((r) => r.date.slice(0, 4)))].sort().reverse();
+    if (!years.length) { el.innerHTML = `<div class="panel muted">${t("noEntries")}</div>`; return; }
+    if (!wrapYear || !years.includes(wrapYear)) wrapYear = years[0];
+    const d = wrapData(wrapYear); const nm = Math.round(d.dist);
+    const card = (big, label, sub = "", cls = "") => `<div class="wcard ${cls}"><small>${label}</small><b>${big}</b>${sub ? `<em>${sub}</em>` : ""}</div>`;
+    el.innerHTML = `<div class="wrap-hero panel"><div><small>RIXARLOG WRAPPED</small><h2>${t("yourYear")} ${wrapYear}</h2>
+        <p>${d.F.length} ${t("sectors")} · ${d.days} ${t("flyingDays")} · ${d.apts.size} ${t("airports").toLowerCase()}</p></div>
+        <div class="wrap-actions"><select id="wy">${years.map((y) => `<option ${y === wrapYear ? "selected" : ""}>${y}</option>`).join("")}</select>
+        <button class="btn primary" id="wShare">${t("shareImage")}</button></div></div>
+      <section class="wgrid">
+        ${card(hm(d.tt.total_min), t("totalFlight"), d.X.length ? `+ FSTD ${hm(d.tt.fstd_min)}` : "", "hero")}
+        ${card(nm.toLocaleString(lang) + " NM", t("distance"), `${(nm * 1.852).toLocaleString(lang, { maximumFractionDigits: 0 })} km · ${(nm / 21600).toLocaleString(lang, { maximumFractionDigits: 2 })} ${t("laps")}`, "cyan")}
+        ${card(d.apts.size, t("airports"), d.newApts.length ? `${d.newApts.length} ${t("newOnes")}: ${h(d.newApts.slice(0, 6).join(", "))}${d.newApts.length > 6 ? "…" : ""}` : "", "")}
+        ${card(d.countries.size, t("countriesT"), h([...d.countries].join(" · ")))}
+        ${d.route ? card(h(d.route[0]), t("topRouteT"), `${d.route[1]} ${t("sectors")}`, "amber") : ""}
+        ${d.month ? card(h(monthName(d.month[0])), t("busiestMonth"), hm(d.month[1]), "") : ""}
+        ${d.longest ? card(hm(d.longest.total_min), t("longestFlight"), h(`${d.longest.dep}–${d.longest.arr} · ${dmy(d.longest.date)}`)) : ""}
+        ${d.far && nmDist(d.far.dep, d.far.arr) > 0 ? card(Math.round(nmDist(d.far.dep, d.far.arr)) + " NM", t("farthest"), h(`${d.far.dep}–${d.far.arr}`)) : ""}
+        ${card(hm(d.tt.night_min), t("night"), `${d.tt.ldg_night} ${t("ldgNight").toLowerCase()}`, "")}
+        ${card(d.tt.ldg_day + d.tt.ldg_night, t("landings"), `${t("ldgDay")} ${d.tt.ldg_day} · ${t("ldgNight")} ${d.tt.ldg_night}`)}
+        ${d.reg ? card(h(d.reg[0]), t("favAircraft"), `${d.reg[1]} ${t("sectors")}${d.type ? " · " + h(d.type[0]) : ""}`) : ""}
+        ${d.capt ? card(h(d.capt[0]), t("topCaptain"), `${d.capt[1]} ${t("sectors")}`) : ""}
+        ${card(`${hm(d.tt.pic_min)} / ${hm(d.tt.cop_min)}`, "PIC / " + t("cop"), `${t("dual")} ${hm(d.tt.dual_min)}`)}
+        ${d.first ? card(dmy(d.first.date), t("firstFlight"), h(`${d.first.dep}–${d.first.arr}`)) : ""}
+      </section>
+      <div class="panel"><h3>${t("routeMap")} ${wrapYear}</h3><div id="wmap" class="rmap"></div></div>`;
+    $("#wy").addEventListener("change", (e) => { wrapYear = e.target.value; VIEWS.wrapped(el); });
+    $("#wShare").addEventListener("click", () => shareWrapped(d));
+    setTimeout(() => window.RXMap && RXMap.render($("#wmap"), d.F, apt, { dark: document.documentElement.dataset.theme === "ecam", t }), 30);
+  };
+  async function shareWrapped(d) {
+    const W = 1080, H = 1350, c = document.createElement("canvas"); c.width = W; c.height = H; const x = c.getContext("2d");
+    const th = document.documentElement.dataset.theme; const dark = th === "ecam";
+    const bg = dark ? "#0a0e13" : th === "red" ? "#c8102e" : "#0b2d5b", fg = "#ffffff", acc = dark ? "#3ddc84" : th === "red" ? "#ffc72c" : "#7fd1ff", mut = "rgba(255,255,255,.7)";
+    x.fillStyle = bg; x.fillRect(0, 0, W, H);
+    const g = x.createRadialGradient(W * 0.8, 0, 50, W * 0.8, 0, 900); g.addColorStop(0, "rgba(255,255,255,.18)"); g.addColorStop(1, "rgba(255,255,255,0)"); x.fillStyle = g; x.fillRect(0, 0, W, H);
+    const font = (sz, w = "700") => `${w} ${sz}px B612, Arial, sans-serif`;
+    x.fillStyle = mut; x.font = font(34, "400"); x.fillText("RIXARLOG WRAPPED", 80, 120);
+    x.fillStyle = fg; x.font = font(92); x.fillText(String(d.year), 80, 230);
+    x.fillStyle = acc; x.font = font(150); x.fillText(hm(d.tt.total_min), 80, 420);
+    x.fillStyle = mut; x.font = font(38, "400"); x.fillText(t("totalFlight").toUpperCase(), 84, 475);
+    const rows = [[d.F.length, t("sectors")], [Math.round(d.dist).toLocaleString(lang) + " NM", t("distance")], [d.apts.size, t("airports")],
+      [d.countries.size, t("countriesT")], [d.route ? d.route[0] : "—", t("topRouteT")], [hm(d.tt.night_min), t("night")]];
+    rows.forEach(([v, l], i) => { const col = i % 2, row = Math.floor(i / 2); const X0 = 80 + col * 470, Y0 = 620 + row * 200;
+      x.fillStyle = fg; x.font = font(String(v).length > 10 ? 52 : 68); x.fillText(String(v), X0, Y0);
+      x.fillStyle = mut; x.font = font(30, "400"); x.fillText(String(l).toUpperCase(), X0, Y0 + 50); });
+    x.fillStyle = mut; x.font = font(28, "400"); x.fillText(((R.profile && R.profile.full_name) || "") + "  ·  rixar-maker.github.io/rixarlog", 80, H - 80);
+    const blob = await new Promise((res) => c.toBlob(res, "image/png"));
+    const file = new File([blob], `RIXARLOG_Wrapped_${d.year}.png`, { type: "image/png" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: `RIXARLOG ${d.year}` }); return; } catch (e) { if (e.name === "AbortError") return; } }
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = file.name; document.body.appendChild(a); a.click(); setTimeout(() => a.remove(), 500);
+  }
 
   // ---------- arranque
   async function start(session) {

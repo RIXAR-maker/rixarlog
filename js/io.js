@@ -34,7 +34,7 @@
   }
   function exportJson(opts = {}) {
     const data = { app: "RIXARLOG", version: window.RX_CONFIG.version, exported_at: new Date().toISOString(),
-      profile: S().profile, entries: S().entries, aircraft: S().aircraft, documents: S().documents };
+      profile: S().profile, entries: S().entries, aircraft: S().aircraft, documents: S().documents, signatures: S().signatures };
     const blob = new Blob([JSON.stringify(data, null, 1)], { type: "application/json" });
     if (opts.file) return new File([blob], fileBase() + ".json", { type: "application/json" });
     download(fileBase() + ".json", blob);
@@ -73,8 +73,12 @@
   }
 
   // ---------- PDF EASA (AMC1 FCL.050)
-  function exportPdf(opts = {}) {
+  async function exportPdf(opts = {}) {
     const { jsPDF } = window.jspdf;
+    // firmas: válidas si la huella guardada coincide con el contenido actual de la anotación
+    const sigMap = new Map();
+    for (const e of (opts.rows || S().entries)) { const L = S().sigsFor(e.id); if (!L.length) continue;
+      const hsh = await S().entryHash(e); sigMap.set(e.id, L.map((x) => ({ ...x, ok: x.entry_hash === hsh }))); }
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
     const rows = opts.rows || S().entries;
     const per = (S().profile && S().profile.rows_per_page) || 20;
@@ -102,12 +106,14 @@
       doc.text(`${P.full_name || ""}${P.licence_type ? "  ·  " + P.licence_type : ""}${P.licence_number ? "  " + P.licence_number : ""}`, 8, 13.5);
       doc.text(`${T("page")} ${p + 1} / ${pages}`, 289, 9, { align: "right" });
       doc.setFontSize(6.5); doc.text("RIXARLOG · UTC", 289, 13.5, { align: "right" });
+      const remark = (r) => { const L = sigMap.get(r.id); if (!L) return r.remarks || "";
+        return [(r.remarks || ""), ...L.map((x) => x.ok ? `${T("signedBy")}: ${x.signer_name}${x.signer_role ? " (" + x.signer_role + ")" : ""}${x.signer_licence ? " " + x.signer_licence : ""}` : T("sigVoidPdf"))].filter(Boolean).join(" · "); };
       const body = chunk.map((r) => r.kind === "FSTD"
-        ? ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", dmy(r.date), r.fstd_type || "", hmBlank(r.fstd_min), r.remarks || ""]
+        ? ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", dmy(r.date), r.fstd_type || "", hmBlank(r.fstd_min), remark(r)]
         : [dmy(r.date), r.dep || "", hhmm(r.off_time), r.arr || "", hhmm(r.on_time), r.ac_type || "", r.registration || "",
            hmBlank(r.se_min), hmBlank(r.me_min), hmBlank(r.mp_min), hmBlank(r.total_min), r.pic_name || "",
            r.ldg_day ? String(r.ldg_day) : "", r.ldg_night ? String(r.ldg_night) : "", hmBlank(r.night_min), hmBlank(r.ifr_min),
-           hmBlank(r.pic_min) + (r.picus ? "*" : ""), hmBlank(r.cop_min), hmBlank(r.dual_min), hmBlank(r.instr_min), "", "", "", r.remarks || ""]);
+           hmBlank(r.pic_min) + (r.picus ? "*" : ""), hmBlank(r.cop_min), hmBlank(r.dual_min), hmBlank(r.instr_min), "", "", "", remark(r)]);
       while (body.length < per) body.push(new Array(24).fill(""));
       const pageSum = {}; Object.values(sumCols).forEach((f) => (pageSum[f] = S().sum(chunk, f)));
       const totRow = (label, src) => {
@@ -128,10 +134,17 @@
         footStyles: { fillColor: [232, 237, 243], textColor: [11, 31, 58], fontSize: 6, fontStyle: "bold" },
         columnStyles: Object.fromEntries(W.map((w, i) => [i, { cellWidth: w, halign: i === 11 || i === 21 || i === 23 ? "left" : "center" }])),
         showFoot: "lastPage", pageBreak: "avoid",
+        didParseCell: (d) => { if (d.section === "body" && d.column.index === 23) { const r = chunk[d.row.index]; const L = r && sigMap.get(r.id);
+          if (L && L.some((x) => x.ok)) { d.cell.styles.cellPadding = { top: 0.5, bottom: 0.5, left: 0.6, right: 13 }; d.cell.styles.overflow = "linebreak"; d.cell.styles.fontSize = 4.8; }
+          if (L && L.some((x) => !x.ok)) d.cell.styles.textColor = [198, 40, 40]; } },
+        didDrawCell: (d) => { if (d.section === "body" && d.column.index === 23) { const r = chunk[d.row.index]; const L = r && sigMap.get(r.id);
+          const v = L && L.find((x) => x.ok);
+          if (v) try { doc.addImage(v.image, "PNG", d.cell.x + d.cell.width - 12.5, d.cell.y + 0.3, 12, d.cell.height - 0.6, undefined, "FAST"); } catch (e) {} } },
       });
       const y = doc.lastAutoTable.finalY + 5;
       doc.setFont("helvetica", "italic"); doc.setFontSize(7); doc.text(T("certify"), 8, y);
       doc.setFont("helvetica", "normal"); doc.text(T("signature") + ": ______________________________", 289, y, { align: "right" });
+      if (P.signature) try { doc.addImage(P.signature, "PNG", 252, y - 7.5, 32, 10, undefined, "FAST"); } catch (e) {}
       Object.keys(prev).forEach((f) => (prev[f] = grand[f]));
     }
     if (opts.blob) return doc.output("blob");
