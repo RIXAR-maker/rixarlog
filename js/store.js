@@ -10,7 +10,7 @@
   };
   const ENTRY_COLS = ["id","kind","date","dep","off_time","arr","on_time","ac_type","registration","se_min","me_min","mp_min",
     "total_min","pic_name","ldg_day","ldg_night","to_day","to_night","night_min","ifr_min","pic_min","cop_min","dual_min",
-    "instr_min","picus","pf","fstd_type","fstd_min","remarks","source","created_at","updated_at"];
+    "instr_min","picus","pf","fstd_type","fstd_min","remarks","source","batch_id","created_at","updated_at"];
   S.ENTRY_COLS = ENTRY_COLS;
 
   const emit = () => S.listeners.forEach((f) => { try { f(); } catch (e) { console.error(e); } });
@@ -148,9 +148,12 @@
     const o = S.outbox(); o.push({ op: "delete", table, row: { id } }); setOutbox(o);
     await S.flush();
   };
-  S.bulkInsert = async (rows, onProgress) => {
+  S.bulkInsert = async (rows, onProgress, meta = {}) => {
+    if (!navigator.onLine) throw new Error("Offline");
     const base = Date.now();
-    rows = rows.map((r, k) => ({ ...r, id: r.id || uuid(), user_id: S.user.id, created_at: r.created_at || new Date(base + k).toISOString() }));
+    const { data: batch, error: be } = await sb.from("import_batches").insert({ user_id: S.user.id, filename: meta.filename || null, source: meta.source || "csv", row_count: rows.length }).select().single();
+    if (be) throw be;
+    rows = rows.map((r, k) => ({ ...r, id: r.id || uuid(), user_id: S.user.id, batch_id: batch.id, created_at: r.created_at || new Date(base + k).toISOString() }));
     for (let i = 0; i < rows.length; i += 200) {
       const chunk = rows.slice(i, i + 200);
       const { error } = await sb.from("entries").upsert(chunk);
@@ -158,6 +161,18 @@
       onProgress && onProgress(Math.min(i + 200, rows.length), rows.length);
     }
     await S.refresh();
+  };
+  S.batches = async () => {
+    const { data, error } = await sb.from("import_batches").select("*").order("created_at", { ascending: false }).limit(50);
+    if (error) throw error; return data;
+  };
+  S.undoBatch = async (id) => {
+    const { error } = await sb.from("entries").delete().eq("batch_id", id); if (error) throw error;
+    const { error: e2 } = await sb.from("import_batches").update({ status: "undone", undone_at: new Date().toISOString() }).eq("id", id); if (e2) throw e2;
+    await S.refresh();
+  };
+  S.removeMany = async (ids) => {
+    for (let i = 0; i < ids.length; i += 200) { const { error } = await sb.from("entries").delete().in("id", ids.slice(i, i + 200)); if (error) throw error; }
   };
   S.saveProfile = async (patch) => {
     S.profile = { ...S.profile, ...patch }; cache(); emit();

@@ -109,6 +109,7 @@
     ["reports", "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 7V3.5L18.5 9H13z"],
     ["docs", "M12 2a10 10 0 100 20 10 10 0 000-20zm1 11h-5v-2h3V6h2v7z"],
     ["aircraft", "M21 16v-2l-8-5V3.5a1.5 1.5 0 00-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"],
+    ["integrity", "M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"],
     ["history", "M13 3a9 9 0 00-9 9H1l4 4 4-4H6a7 7 0 112.05 4.95l-1.42 1.42A9 9 0 1013 3zm-1 5v5l4.25 2.52.77-1.28-3.52-2.09V8H12z"],
     ["settings", "M19.4 13a7.5 7.5 0 000-2l2.1-1.6-2-3.5-2.5 1a7.6 7.6 0 00-1.7-1L15 3h-4l-.3 2.9a7.6 7.6 0 00-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 000 2l-2.1 1.6 2 3.5 2.5-1a7.6 7.6 0 001.7 1L11 21h4l.3-2.9a7.6 7.6 0 001.7-1l2.5 1 2-3.5-2.1-1.6zM13 15.5a3.5 3.5 0 110-7 3.5 3.5 0 010 7z"],
   ];
@@ -160,7 +161,7 @@
   window.addEventListener("hashchange", route);
   let rerenderTimer;
   R.on(() => { clearTimeout(rerenderTimer); rerenderTimer = setTimeout(() => {
-    if (["dashboard", "logbook", "totals", "reports", "docs", "aircraft"].includes(current) && !document.querySelector(".overlay")) route();
+    if (["dashboard", "logbook", "totals", "reports", "docs", "aircraft", "integrity"].includes(current) && !document.querySelector(".overlay")) route();
     syncBadge(); }, 150); });
   document.addEventListener("rx-profile", () => { applyProfile(); });
 
@@ -196,6 +197,7 @@
     let dismissed = false; try { dismissed = localStorage.getItem("rx:installDismissed") === "1"; } catch {}
     el.innerHTML = `
       ${isIOS && !standalone && !dismissed ? `<div class="panel install"><div><b>${t("installTitle")}</b><p class="fine">${t("installHint")}</p></div><button class="btn small" id="instX">✕</button></div>` : ""}
+      ${(() => { const n = openIssues().filter((x) => x.type !== "check").length; return n ? `<a class="panel install alert" href="#integrity"><div><b>${n} ${t("issuesOpen")}</b><p class="fine">${t("issuesHint")}</p></div><span class="chev">›</span></a>` : ""; })()}
       ${!R.entries.length ? `<div class="panel hero"><h2>${t("welcome")}</h2><p>${t("onboarding")}</p><p class="fine">${t("installHint")}</p>
         <a class="btn primary" href="#settings">${t("settings")}</a> <a class="btn" href="#entry/new">${t("newEntry")}</a></div>` : ""}
       <section class="tiles">
@@ -451,7 +453,9 @@
     }
     function showChecks() {
       const e = R.checks(r);
-      $("#checks").innerHTML = e.length ? e.map((k) => `<span class="chip amber">${t(k)}</span>`).join("") : `<span class="chip green">${t("checks")}: ${t("ok")}</span>`;
+      const ov = r.kind === "FLT" ? RXInt.overlapsWith({ ...r, id }, R.entries) : [];
+      $("#checks").innerHTML = ov.map((x) => `<span class="chip red">${t("overlapWith")} ${h(desc(x))}</span>`).join("") +
+        (e.length ? e.map((k) => `<span class="chip amber">${t(k)}</span>`).join("") : `<span class="chip green">${t("checks")}: ${t("ok")}</span>`);
     }
     function bind() {
       $$("input,select,textarea", body).forEach((x) => {
@@ -679,11 +683,13 @@
       <div class="panel"><h3>${t("importT")}</h3>
         <div class="btnrow"><label class="btn">${t("importCsv")}<input type="file" id="iCsv" accept=".csv,.txt,text/csv" hidden></label>
           <label class="btn">${t("importJson")}<input type="file" id="iJson" accept=".json,application/json" hidden></label></div>
-        <p class="fine"><span class="chip amber">beta</span> ${t("importDev")}</p><div id="imp"></div></div>
+        <p class="fine"><span class="chip amber">beta</span> ${t("importDev")}</p><div id="imp"></div>
+        <h4>${t("batches")}</h4><div id="batches" class="fine">…</div></div>
       <div class="panel"><h3>${t("account")}</h3><p class="fine">${h(R.user.email)} · ${t("privacyNote")}</p>
         <div class="btnrow"><button class="btn" id="lo2">${t("logout")}</button><button class="btn danger" id="delAcc">${t("deleteAccount")}</button></div>
         <p class="fine"><a href="#" id="privS">${t("privacy")}</a> · RIXARLOG v${window.RX_CONFIG.version}</p></div>`;
     $("#privS").addEventListener("click", (e) => { e.preventDefault(); showPrivacy(); });
+    drawBatches();
     $("#lg").value = p.lang || lang;
     $$("[data-th]", el).forEach((b) => b.addEventListener("click", async () => { setTheme(b.dataset.th); $$("[data-th]", el).forEach((x) => x.classList.toggle("on", x === b)); await R.saveProfile({ theme: b.dataset.th }); }));
     $("#lg").addEventListener("change", async (e) => { setLang(e.target.value); await R.saveProfile({ lang: e.target.value }); shell(); route(); });
@@ -709,9 +715,8 @@
         const d = JSON.parse(await f.text()); if (!d.entries) throw new Error("JSON");
         for (const a of d.aircraft || []) if (!R.aircraft.find((x) => x.registration === a.registration)) await R.save("aircraft", { registration: a.registration, ac_type: a.ac_type, class: a.class, notes: a.notes });
         for (const x of d.documents || []) await R.save("documents", { id: x.id, kind: x.kind, name: x.name, ref_number: x.ref_number, issued: x.issued, expires: x.expires, notes: x.notes });
-        const rows = d.entries.map((r) => { const o = {}; for (const k of R.ENTRY_COLS) if (k in r && k !== "updated_at") o[k] = r[k]; return o; });
-        await R.bulkInsert(rows, (n, tot) => ($("#imp").textContent = `${n}/${tot}`));
-        toast(`${rows.length} ${t("imported")}`, "ok");
+        const rows = d.entries.map((r) => { const o = {}; for (const k of R.ENTRY_COLS) if (k in r && !["updated_at", "batch_id", "id"].includes(k)) o[k] = r[k]; return o; });
+        reviewImport(rows, { filename: f.name, source: "json" });
       } catch (err) { alert(err.message); }
     });
     $("#iCsv").addEventListener("change", async (e) => {
@@ -719,30 +724,91 @@
       const rows = IO.parseCsv(await f.text()); if (rows.length < 2) return;
       const head = rows[0]; const m = IO.guessMapping(head);
       const fields = IO.FIELDS.filter((x) => x !== "id");
-      $("#imp").innerHTML = `<p>${t("mapCols")} · ${rows.length - 1} ${t("entries")}</p>
-        <div class="mapgrid">${fields.map((fl) => `<label>${fl}<select data-map="${fl}"><option value="">—</option>${head.map((c, i) => `<option value="${i}" ${m[fl] === i ? "selected" : ""}>${h(c)}</option>`).join("")}</select></label>`).join("")}</div>
+      $("#imp").innerHTML = `<p><b>${h(f.name)}</b> · ${rows.length - 1} ${t("entries")}</p>
+        <details ${fields.every((fl) => m[fl] != null) ? "" : "open"}><summary>${t("mapCols")}</summary><div class="mapgrid">${fields.map((fl) => `<label>${fl}<select data-map="${fl}"><option value="">—</option>${head.map((c, i) => `<option value="${i}" ${m[fl] === i ? "selected" : ""}>${h(c)}</option>`).join("")}</select></label>`).join("")}</div></details>
         <label>${t("minutesFmt")}<select id="dm"><option value="auto">h:mm / ${t("decimal")}</option><option value="min">min</option></select></label>
         <div id="prev" class="fine"></div>
         <button class="btn primary" id="go">${t("importRows")}</button>`;
       const build = () => { const map = {}; $$("[data-map]").forEach((s) => (map[s.dataset.map] = s.value === "" ? null : Number(s.value))); return IO.mapRows(rows, map, $("#dm").value); };
-      const pv = () => { const b = build(); const bad = b.filter((r) => R.checks(r).length).length; $("#prev").textContent = `${b.length} OK · ${bad} ${t("checks").toLowerCase()} ⚠ · ${b[0] ? JSON.stringify(b[0]).slice(0, 220) : ""}`; };
+      const pv = () => { const b = build(); const bad = b.filter((r) => R.checks(r).length).length; $("#prev").textContent = `${b.length} ${t("entries")} · ${bad} ⚠ · ${b[0] ? desc(b[0]) : ""}`; };
       $$("#imp select").forEach((s) => s.addEventListener("change", pv)); pv();
-      $("#go").addEventListener("click", async () => {
-        let b = build(); $("#go").disabled = true;
-        const sig = (r) => [r.kind, r.date, r.kind === "FSTD" ? (r.fstd_type || "").toUpperCase() : r.dep, hh(r.off_time), r.arr, hh(r.on_time), r.registration, r.kind === "FSTD" ? r.fstd_min : r.total_min].join("|");
-        const have = new Set(R.entries.map(sig)); const before = b.length; b = b.filter((r) => !have.has(sig(r)));
-        const dup = before - b.length;
-        if (dup && !confirm(`${dup} ${t("dupSkip")}`)) { $("#go").disabled = false; return; }
-        if (!b.length) { toast(`0 ${t("imported")}`); $("#go").disabled = false; return; }
-        // aeronaves nuevas
-        for (const [reg, rs] of R.groupBy(b.filter((r) => r.kind === "FLT"), (r) => r.registration)) {
-          if (!R.aircraft.find((a) => a.registration === reg) && rs[0].ac_type)
-            await R.save("aircraft", { registration: reg, ac_type: rs[0].ac_type, class: rs[0].mp_min ? "MP" : rs[0].me_min ? "ME" : "SE" });
-        }
-        try { await R.bulkInsert(b, (n, tot) => ($("#prev").textContent = `${n}/${tot}`)); toast(`${b.length} ${t("imported")}`, "ok"); location.hash = "#logbook"; }
-        catch (err) { alert(err.message); $("#go").disabled = false; }
+      $("#go").textContent = t("reviewImport");
+      $("#go").addEventListener("click", () => reviewImport(build(), { filename: f.name, source: "csv" }));
+    });
+  };
+
+
+  // ---------- importación con revisión y lotes
+  const ST = { new: ["green", "impNew"], same: ["muted", "impSame"], filedup: ["red", "impFileDup"], probable: ["amber", "impProbable"], fileprob: ["amber", "impFileProb"] };
+  const desc = (r) => r.kind === "FSTD" ? `${dmy(r.date)} · FSTD ${r.fstd_type || ""} · ${hm(r.fstd_min)}` : `${dmy(r.date)} · ${r.dep || ""}→${r.arr || ""} ${hh(r.off_time)}–${hh(r.on_time)} · ${r.registration || ""} · ${hm(r.total_min)}`;
+  function reviewImport(rows, meta) {
+    if (!navigator.onLine) { alert(t("offline")); return; }
+    const C = RXInt.classify(rows, R.entries);
+    const count = (k) => C.filter((c) => c.status === k).length;
+    const flagged = C.map((c, i) => [c, i]).filter(([c]) => c.status !== "new");
+    modal(`<h3>${t("reviewImport")}</h3>
+      <div class="impsum">${Object.keys(ST).map((k) => `<div class="${ST[k][0]}"><b>${count(k)}</b><span>${t(ST[k][1])}</span></div>`).join("")}</div>
+      ${flagged.length ? `<p class="fine">${t("impHelp")}</p><div class="implist">${flagged.slice(0, 400).map(([c, i]) => `
+        <div class="improw ${ST[c.status][0]}"><div><span class="chip ${ST[c.status][0]}">${t(ST[c.status][1])}</span><b>${h(desc(c.row))}</b>
+          ${c.match ? `<small>↔ ${h(desc(c.match))}</small>` : ""}</div>
+          <select data-i="${i}">${["skip", "keep"].concat(c.status === "probable" ? ["replace"] : []).map((a) => `<option value="${a}" ${c.action === a ? "selected" : ""}>${t("act_" + a)}</option>`).join("")}</select></div>`).join("")}</div>` : ""}
+      <div class="factions"><span class="grow"></span><button class="btn" data-close>${t("cancel")}</button><button class="btn primary" id="impGo"></button></div>
+      <p class="fine" id="impProg"></p>`, (o, close) => {
+      const upd = () => { $$("[data-i]", o).forEach((sel) => (C[sel.dataset.i].action = sel.value));
+        const n = C.filter((c) => c.action !== "skip").length, rep = C.filter((c) => c.action === "replace").length;
+        $("#impGo", o).textContent = `${t("importRows")} (${n})${rep ? ` · ${rep} ${t("act_replace").toLowerCase()}` : ""}`; $("#impGo", o).disabled = !n; };
+      $$("[data-i]", o).forEach((sel) => sel.addEventListener("change", upd)); upd();
+      $("#impGo", o).addEventListener("click", async () => {
+        $("#impGo", o).disabled = true;
+        const take = C.filter((c) => c.action !== "skip");
+        try {
+          const repl = take.filter((c) => c.action === "replace").map((c) => c.match.id);
+          if (repl.length) await R.removeMany(repl);
+          for (const [reg, rs] of R.groupBy(take.map((c) => c.row).filter((r) => r.kind === "FLT"), (r) => r.registration))
+            if (!R.aircraft.find((a) => a.registration === reg) && rs[0].ac_type) await R.save("aircraft", { registration: reg, ac_type: rs[0].ac_type, class: rs[0].mp_min ? "MP" : rs[0].me_min ? "ME" : "SE" });
+          await R.bulkInsert(take.map((c) => c.row), (n, tot) => ($("#impProg", o).textContent = `${n}/${tot}`), meta);
+          close(); toast(`${take.length} ${t("imported")}`, "ok"); location.hash = "#logbook";
+        } catch (err) { alert(err.message); $("#impGo", o).disabled = false; }
       });
     });
+  }
+  async function drawBatches() {
+    const el = $("#batches"); if (!el) return;
+    try {
+      const bs = await R.batches();
+      if (!bs.length) { el.textContent = "—"; return; }
+      el.innerHTML = bs.map((b) => { const live = R.entries.filter((e) => e.batch_id === b.id).length;
+        return `<div class="batch"><div><b>${new Date(b.created_at).toLocaleString(lang)}</b><small>${h(b.filename || b.source || "")} · ${b.row_count} ${t("entries")}${b.status === "undone" ? ` · ${t("undone")}` : ` · ${live} ${t("inLog")}`}</small></div>
+          ${b.status === "active" && live ? `<button class="btn small danger" data-undo="${b.id}">${t("undo")}</button>` : ""}</div>`; }).join("");
+      $$("[data-undo]", el).forEach((bt) => bt.addEventListener("click", async () => {
+        const n = R.entries.filter((e) => e.batch_id === bt.dataset.undo).length;
+        if (!confirm(`${t("undoConfirm")} (${n})`)) return;
+        bt.disabled = true; try { await R.undoBatch(bt.dataset.undo); toast(t("undone"), "ok"); drawBatches(); } catch (e) { alert(e.message); bt.disabled = false; }
+      }));
+    } catch (e) { el.textContent = e.message; }
+  }
+
+  // ---------- INTEGRIDAD
+  const pairKey = (rows) => rows.map((r) => r.id).sort().join("+");
+  const reviewed = () => new Set(st().reviewed || []);
+  const openIssues = () => { const rv = reviewed(); return RXInt.issues(R.entries).filter((x) => x.type === "check" || x.type === "future" ? true : !rv.has(pairKey(x.rows))); };
+  VIEWS.integrity = (el) => {
+    const all = RXInt.issues(R.entries); const rv = reviewed();
+    const groups = [["overlap", "red"], ["probable", "amber"], ["fstddup", "amber"], ["future", "amber"], ["check", "muted"]];
+    const open = all.filter((x) => !["overlap", "probable", "fstddup"].includes(x.type) || !rv.has(pairKey(x.rows)));
+    const done = all.length - open.length;
+    el.innerHTML = `<div class="panel"><h3>${t("integrity")}</h3><p class="fine">${t("integrityTxt")}</p>
+      <div class="impsum">${groups.map(([k, c]) => `<div class="${c}"><b>${open.filter((x) => x.type === k).length}</b><span>${t("iss_" + k)}</span></div>`).join("")}</div>
+      ${!open.length ? `<p class="chip green">${t("integrityOk")}</p>` : ""}
+      ${done ? `<p class="fine">${done} ${t("reviewedN")} <a href="#" id="unrev">${t("showAgain")}</a></p>` : ""}</div>
+      ${groups.map(([k, c]) => { const L = open.filter((x) => x.type === k); if (!L.length) return "";
+        return `<div class="panel"><h3>${t("iss_" + k)}</h3>${L.slice(0, 200).map((x) => `<div class="issue ${c}">
+          <div>${x.rows.map((r) => `<a href="#entry/${r.id}">${h(desc(r))}</a>`).join("<span class='vs'>↔</span>")}${x.codes ? `<small>${x.codes.map(t).join(" · ")}</small>` : ""}</div>
+          ${x.rows.length > 1 ? `<div class="ia"><button class="btn small" data-rev="${pairKey(x.rows)}">${t("markOk")}</button><button class="btn small danger" data-delb="${x.rows[1].id}">${t("delSecond")}</button></div>` : ""}</div>`).join("")}</div>`; }).join("")}`;
+    $$("[data-rev]", el).forEach((b) => b.addEventListener("click", async () => { const s2 = st(); const list = new Set(s2.reviewed || []); list.add(b.dataset.rev);
+      await R.saveProfile({ settings: { ...s2, reviewed: [...list] } }); route(); }));
+    $$("[data-delb]", el).forEach((b) => b.addEventListener("click", async () => { if (!confirm(t("confirmDel"))) return; await R.remove("entries", b.dataset.delb); route(); }));
+    const u = $("#unrev"); if (u) u.addEventListener("click", async (e) => { e.preventDefault(); await R.saveProfile({ settings: { ...st(), reviewed: [] } }); route(); });
   };
 
   // ---------- arranque
