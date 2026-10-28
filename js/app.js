@@ -14,7 +14,7 @@
   const t = (k) => (window.RX_I18N[lang] && window.RX_I18N[lang][k]) || window.RX_I18N.es[k] || k;
   const setLang = (l) => { lang = l; try { localStorage.setItem("rx:lang", l); } catch {} document.documentElement.lang = l; };
   const setTheme = (th) => { document.documentElement.dataset.theme = th; try { localStorage.setItem("rx:theme", th); } catch {}
-    const m = $('meta[name="theme-color"]'); if (m) m.content = th === "fcom" ? "#0b2d5b" : "#0a0e13"; };
+    const m = $('meta[name="theme-color"]'); if (m) m.content = th === "fcom" ? "#0b2d5b" : th === "red" ? "#c8102e" : "#0a0e13"; };
   try { setTheme(localStorage.getItem("rx:theme") || "ecam"); } catch { setTheme("ecam"); }
   setLang(lang);
 
@@ -169,6 +169,7 @@
     document.body.className = document.body.className.replace(/\bv-\S+/g, "").trim() + " v-" + v;
     $$("nav a[data-v]").forEach((a) => a.classList.toggle("on", a.dataset.v === v));
     $$(".overlay").forEach((o) => o.remove());
+    if (window.RXMap) RXMap.destroy();
     const view = $("#view");
     const fn = VIEWS[v] || VIEWS.dashboard;
     view.innerHTML = ""; window.scrollTo(0, 0);
@@ -201,6 +202,7 @@
   const VIEWS = {};
 
   // ---------- PANEL
+  let mapPeriod = "all";
   VIEWS.dashboard = (el) => {
     const all = R.totals(R.entries), l28 = R.totals(R.sinceDays(28)), l90 = R.totals(R.sinceDays(90)), l12 = R.totals(R.sinceDays(365));
     const fl = R.entries.filter((r) => r.kind === "FLT"); const last = fl[fl.length - 1];
@@ -229,6 +231,9 @@
         ${tile(t("last12"), hm(l12.total_min), "")}
         ${tile(t("lastFlight"), last ? dmy(last.date) : "—", last ? h(`${last.dep}–${last.arr} · ${last.ac_type}`) : "")}
       </section>
+      <div class="panel"><div class="fhead"><h3>${t("routeMap")}</h3>
+        <div class="seg small" id="mapP">${[["all", t("all")], ["365", t("last12")], ["year", t("thisYear")]].map(([k, l]) => `<button data-mp="${k}" class="${mapPeriod === k ? "on" : ""}">${l}</button>`).join("")}</div></div>
+        <div id="rmap" class="rmap"></div><p class="fine" id="rmapInfo"></p></div>
       <section class="grid2">
         <div class="panel"><h3>${t("hoursByMonth")}</h3><div class="chart"><canvas id="cMonth"></canvas></div></div>
         <div class="panel"><h3>${t("recency")}</h3><p class="fine">${t("recencyTxt")}</p>
@@ -247,6 +252,14 @@
         <div class="panel"><h3>${t("byType")}</h3><div class="chart"><canvas id="cType"></canvas></div></div>
       </section>`;
     const bk = $("#bkDev"); if (bk) bk.addEventListener("click", saveDevice);
+    const drawMap = () => {
+      const y0 = todayISO().slice(0, 4) + "-01-01";
+      const rows = mapPeriod === "all" ? R.entries : mapPeriod === "year" ? R.entries.filter((r) => r.date >= y0) : R.sinceDays(365);
+      const info = window.RXMap ? RXMap.render($("#rmap"), rows, apt, { dark: document.documentElement.dataset.theme === "ecam", t }) : null;
+      $("#rmapInfo").textContent = info ? `${info.routes} ${t("routesN")} · ${info.airports} ${t("airports").toLowerCase()} · ${t("mapHint")}` : "";
+    };
+    $$("[data-mp]", el).forEach((b) => b.addEventListener("click", () => { mapPeriod = b.dataset.mp; $$("[data-mp]", el).forEach((x) => x.classList.toggle("on", x === b)); drawMap(); }));
+    if (Object.keys(APT).length) drawMap(); else setTimeout(drawMap, 800);
     const ix = $("#instX"); if (ix) ix.addEventListener("click", () => { try { localStorage.setItem("rx:installDismissed", "1"); } catch {} ix.parentElement.remove(); });
     // gráficos
     if (!window.Chart) return;
@@ -684,7 +697,7 @@
     const p = R.profile || {}; const s = st(); const tg = targets();
     el.innerHTML = `
       <div class="panel"><h3>${t("appearance")}</h3>
-        <div class="themes">${["ecam", "fcom", "hybrid"].map((k) => `<button class="theme-card ${(p.theme || "ecam") === k ? "on" : ""}" data-th="${k}"><i class="sw ${k}"><b></b><b></b><b></b></i><span>${t(k)}</span></button>`).join("")}</div>
+        <div class="themes">${["ecam", "fcom", "hybrid", "red"].map((k) => `<button class="theme-card ${(p.theme || "ecam") === k ? "on" : ""}" data-th="${k}"><i class="sw ${k}"><b></b><b></b><b></b></i><span>${t(k)}</span></button>`).join("")}</div>
         <div class="g3">
           <label>${t("language")}<select id="lg"><option value="es">Español</option><option value="en">English</option></select></label>
           <label>${t("pdfRows")}<input id="rpp" type="number" min="10" max="40" value="${p.rows_per_page || 20}"></label>
