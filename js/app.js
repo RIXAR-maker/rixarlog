@@ -728,7 +728,12 @@
       const pv = () => { const b = build(); const bad = b.filter((r) => R.checks(r).length).length; $("#prev").textContent = `${b.length} OK · ${bad} ${t("checks").toLowerCase()} ⚠ · ${b[0] ? JSON.stringify(b[0]).slice(0, 220) : ""}`; };
       $$("#imp select").forEach((s) => s.addEventListener("change", pv)); pv();
       $("#go").addEventListener("click", async () => {
-        const b = build(); $("#go").disabled = true;
+        let b = build(); $("#go").disabled = true;
+        const sig = (r) => [r.kind, r.date, r.kind === "FSTD" ? (r.fstd_type || "").toUpperCase() : r.dep, hh(r.off_time), r.arr, hh(r.on_time), r.registration, r.kind === "FSTD" ? r.fstd_min : r.total_min].join("|");
+        const have = new Set(R.entries.map(sig)); const before = b.length; b = b.filter((r) => !have.has(sig(r)));
+        const dup = before - b.length;
+        if (dup && !confirm(`${dup} ${t("dupSkip")}`)) { $("#go").disabled = false; return; }
+        if (!b.length) { toast(`0 ${t("imported")}`); $("#go").disabled = false; return; }
         // aeronaves nuevas
         for (const [reg, rs] of R.groupBy(b.filter((r) => r.kind === "FLT"), (r) => r.registration)) {
           if (!R.aircraft.find((a) => a.registration === reg) && rs[0].ac_type)

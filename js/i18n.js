@@ -1,7 +1,7 @@
 window.RX_I18N = {
   es: {
     tagline: "Libro de vuelo electrónico · AMC1 FCL.050",
-    year: "Año", offlineShort: "Sin conexión", now: "Ahora", swap: "Invertir ruta", saveReturn: "Guardar + vuelta", duplicate: "Duplicar",
+    year: "Año", dupSkip: "anotaciones ya existen en tu libro y se omitirán (no se duplican). ¿Importar el resto?", offlineShort: "Sin conexión", now: "Ahora", swap: "Invertir ruta", saveReturn: "Guardar + vuelta", duplicate: "Duplicar",
     installTitle: "Instala RIXARLOG en tu iPhone", privacy: "Privacidad",
     privacyNoContact: "la persona que te invitó a RIXARLOG",
     privacyBody: "<p><b>Qué datos guardamos.</b> Tu email, nombre, datos de licencia que tú introduzcas, tus anotaciones de vuelo y FSTD, aeronaves, documentos con fechas de caducidad y el historial de cambios.</p><p><b>Para qué.</b> Únicamente para que lleves tu libro de vuelo y lo sincronices entre tus dispositivos. No se venden ni se ceden datos, no hay publicidad ni analítica de terceros.</p><p><b>Dónde.</b> En Supabase (servidores de AWS en Irlanda, UE), cifrados en tránsito y en reposo. Cada usuario solo puede acceder a sus propios datos.</p><p><b>Base legal.</b> Tu consentimiento y la prestación del servicio que solicitas (art. 6.1.a y b RGPD).</p><p><b>Tus derechos.</b> Puedes exportar todos tus datos (Ajustes → Exportar) y borrar tu cuenta con todos sus datos (Ajustes → Borrar mi cuenta) en cualquier momento. Para cualquier otra solicitud, contacta con {contact}. También puedes reclamar ante la AEPD (aepd.es).</p><p><b>Aviso.</b> RIXARLOG no está afiliado a Airbus ni a EASA. Eres responsable de la exactitud de tu libro de vuelo.</p>", picNamePh: "Nombre del comandante", tbl_entries: "vuelo", tbl_aircraft: "aeronave", tbl_documents: "documento",
@@ -61,7 +61,7 @@ window.RX_I18N = {
   },
   en: {
     tagline: "Electronic pilot logbook · AMC1 FCL.050",
-    year: "Year", offlineShort: "Offline", now: "Now", swap: "Swap route", saveReturn: "Save + return", duplicate: "Duplicate",
+    year: "Year", dupSkip: "entries already exist in your logbook and will be skipped (no duplicates). Import the rest?", offlineShort: "Offline", now: "Now", swap: "Swap route", saveReturn: "Save + return", duplicate: "Duplicate",
     installTitle: "Install RIXARLOG on your iPhone", privacy: "Privacy",
     privacyNoContact: "the person who invited you to RIXARLOG",
     privacyBody: "<p><b>What we store.</b> Your email, name, the licence details you enter, your flight and FSTD entries, aircraft, documents with expiry dates and the change history.</p><p><b>Why.</b> Only so you can keep your logbook and sync it across your devices. No data is sold or shared, no advertising or third-party analytics.</p><p><b>Where.</b> In Supabase (AWS servers in Ireland, EU), encrypted in transit and at rest. Each user can only access their own data.</p><p><b>Legal basis.</b> Your consent and the provision of the service you request (GDPR art. 6.1.a and b).</p><p><b>Your rights.</b> You can export all your data (Settings → Export) and delete your account with all its data (Settings → Delete my account) at any time. For any other request, contact {contact}. You may also complain to your data protection authority.</p><p><b>Notice.</b> RIXARLOG is not affiliated with Airbus or EASA. You are responsible for the accuracy of your logbook.</p>", picNamePh: "Commander name", tbl_entries: "entry", tbl_aircraft: "aircraft", tbl_documents: "document",
