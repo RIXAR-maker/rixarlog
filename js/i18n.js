@@ -1,7 +1,9 @@
 window.RX_I18N = {
   es: {
     tagline: "Libro de vuelo electrónico · AMC1 FCL.050",
-    year: "Año", notifications: "Notificaciones", nRecency: "Recencia FCL.060", nDocs: "Caducidades", nSign: "Firmas pendientes (lunes)", nBackup: "Copia de seguridad",
+    year: "Año", showAll: "Ver todos", showLess: "Ver menos", stats: "Estadísticas", reportT: "Informe", grpRecords: "Registro", grpQuality: "Calidad", alerts: "Avisos", saveCopy: "Guardar copia",
+    unsignedN: "anotaciones de formación sin firmar", unsignedHint: "Últimos 30 días. Pide la firma al TRI o comandante.", secAircraft: "Fecha y aeronave", secRoute: "Ruta y horas (UTC)",
+    secFunction: "Tiempo y función", autoCalc: "Noche, IFR, despegues y aterrizajes", toShort: "Desp.", ldgShort: "Aterr.", notifications: "Notificaciones", nRecency: "Recencia FCL.060", nDocs: "Caducidades", nSign: "Firmas pendientes (lunes)", nBackup: "Copia de seguridad",
     pushInfo: "Avisos en este dispositivo: recencia a 14, 7, 3 y 1 días; documentos a 60, 30, 14, 7 y 1 días; firmas de formación pendientes cada lunes; copia de más de 30 días. Revisión diaria a las 08:00.",
     pushOn: "Notificaciones activadas en este dispositivo", pushOff: "Notificaciones desactivadas en este dispositivo", pushDenied: "Bloqueadas en los ajustes del navegador/iPhone",
     pushEnable: "Activar notificaciones", pushDisable: "Desactivar en este dispositivo", pushTest: "Enviar prueba", pushRun: "Revisar ahora",
@@ -16,8 +18,8 @@ window.RX_I18N = {
     signEmpty: "Falta la firma.", signName: "Falta el nombre de quien firma.", signedN: "anotaciones firmadas", signed: "Firmada", sigValid: "Firma válida",
     sigInvalid: "Firma invalidada: la anotación se modificó después de firmar", signatures: "Firmas", noSignatures: "Sin firmas.", editVoids: "Si modificas esta anotación, las firmas quedarán invalidadas.",
     sigDelConfirm: "¿Borrar esta firma? Quedará registrado en el historial.", mySignature: "Mi firma", mySigHint: "Se usará en el PDF EASA junto a «Certifico que las anotaciones de este libro son ciertas».",
-    noMySig: "Aún no has guardado tu firma.", draw: "Dibujar", redraw: "Volver a firmar", tbl_signatures: "firma", routeMap: "Mapa de rutas", routesN: "rutas", mapHint: "color y grosor según las veces que has volado cada ruta", red: "Rojo aerolínea", pwRules: "Mínimo 10 caracteres, con mayúsculas, minúsculas y números.", pwPwned: "Esta contraseña aparece en filtraciones de datos públicas. Elige otra.", changePw: "Cambiar contraseña", repeatPw: "Repite la contraseña", pwMismatch: "Las contraseñas no coinciden.", countries: "países", storedValues: "Valores guardados. Cambia fecha, horas o aeropuertos para recalcular noche y aterrizajes.", backups: "Copias de seguridad", lastBackup: "Última copia", backupNever: "Aún no tienes ninguna copia de seguridad fuera del servidor",
-    backupOld: "Tu última copia de seguridad es de hace {n} días", backupHint: "Guarda una copia (Excel + JSON) en iCloud Drive o Archivos, o activa el envío automático por email.",
+    noMySig: "Aún no has guardado tu firma.", draw: "Dibujar", redraw: "Volver a firmar", tbl_signatures: "firma", routeMap: "Mapa de rutas", routesN: "rutas", mapHint: "color y grosor según las veces que has volado cada ruta", red: "Rojo aerolínea", pwRules: "Mínimo 10 caracteres, con mayúsculas, minúsculas y números.", pwPwned: "Esta contraseña aparece en filtraciones de datos públicas. Elige otra.", changePw: "Cambiar contraseña", repeatPw: "Repite la contraseña", pwMismatch: "Las contraseñas no coinciden.", countries: "países", storedValues: "Valores guardados. Cambia fecha, horas o aeropuertos para recalcular noche y aterrizajes.", backups: "Copias de seguridad", lastBackup: "Última copia", backupNever: "Sin copia de seguridad fuera del servidor",
+    backupOld: "Tu última copia de seguridad es de hace {n} días", backupHint: "Guárdala en iCloud Drive o Archivos.",
     backupDevice: "Guardar copia en el dispositivo", backupSettings: "Configurar email", backupEmail: "Enviarme copia por email", backupFreq: "Frecuencia",
     weekly: "Semanal (lunes)", monthly: "Mensual (primer lunes)", backupTo: "Enviar a", backupNow: "Enviar copia ahora",
     backupInfo: "El email incluye CSV (re-importable), Excel y JSON (restauración completa). El email no es un canal cifrado de extremo a extremo.",
@@ -88,7 +90,9 @@ window.RX_I18N = {
   },
   en: {
     tagline: "Electronic pilot logbook · AMC1 FCL.050",
-    year: "Year", notifications: "Notifications", nRecency: "FCL.060 recency", nDocs: "Expiries", nSign: "Pending signatures (Mondays)", nBackup: "Backup",
+    year: "Year", showAll: "Show all", showLess: "Show less", stats: "Statistics", reportT: "Report", grpRecords: "Records", grpQuality: "Quality", alerts: "Alerts", saveCopy: "Save copy",
+    unsignedN: "training entries without signature", unsignedHint: "Last 30 days. Ask the TRI or commander to sign.", secAircraft: "Date and aircraft", secRoute: "Route and times (UTC)",
+    secFunction: "Time and function", autoCalc: "Night, IFR, take-offs and landings", toShort: "T/O", ldgShort: "Ldg", notifications: "Notifications", nRecency: "FCL.060 recency", nDocs: "Expiries", nSign: "Pending signatures (Mondays)", nBackup: "Backup",
     pushInfo: "Alerts on this device: recency at 14, 7, 3 and 1 days; documents at 60, 30, 14, 7 and 1 days; pending training signatures every Monday; backup older than 30 days. Daily check at 08:00.",
     pushOn: "Notifications enabled on this device", pushOff: "Notifications disabled on this device", pushDenied: "Blocked in browser/iPhone settings",
     pushEnable: "Enable notifications", pushDisable: "Disable on this device", pushTest: "Send test", pushRun: "Check now",

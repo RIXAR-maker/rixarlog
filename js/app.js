@@ -36,8 +36,8 @@
   function modal(html, onMount) {
     const o = document.createElement("div"); o.className = "overlay";
     o.innerHTML = `<div class="modal">${html}</div>`;
-    document.body.appendChild(o);
-    const close = () => o.remove();
+    document.body.appendChild(o); document.body.classList.add("modal-open");
+    const close = () => { o.remove(); if (!document.querySelector(".overlay")) document.body.classList.remove("modal-open"); };
     o.addEventListener("click", (e) => { if (e.target === o) close(); });
     $$("[data-close]", o).forEach((b) => b.addEventListener("click", close));
     onMount && onMount(o, close);
@@ -117,18 +117,22 @@
   }
 
   // ---------- shell
-  const NAV = [
-    ["dashboard", "M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"],
-    ["logbook", "M6 2h11a2 2 0 012 2v16a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2zm1 4v2h9V6H7zm0 4v2h9v-2H7zm0 4v2h6v-2H7z"],
-    ["totals", "M4 20h16v2H4zM6 10h3v8H6zm5-6h3v14h-3zm5 9h3v5h-3z"],
-    ["reports", "M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 7V3.5L18.5 9H13z"],
-    ["docs", "M12 2a10 10 0 100 20 10 10 0 000-20zm1 11h-5v-2h3V6h2v7z"],
-    ["aircraft", "M21 16v-2l-8-5V3.5a1.5 1.5 0 00-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"],
-    ["wrapped", "M12 2l2.9 6.9L22 9.3l-5.4 4.7L18.2 21 12 17.3 5.8 21l1.6-7L2 9.3l7.1-.4z"],
-    ["integrity", "M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"],
-    ["history", "M13 3a9 9 0 00-9 9H1l4 4 4-4H6a7 7 0 112.05 4.95l-1.42 1.42A9 9 0 1013 3zm-1 5v5l4.25 2.52.77-1.28-3.52-2.09V8H12z"],
-    ["settings", "M19.4 13a7.5 7.5 0 000-2l2.1-1.6-2-3.5-2.5 1a7.6 7.6 0 00-1.7-1L15 3h-4l-.3 2.9a7.6 7.6 0 00-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 000 2l-2.1 1.6 2 3.5 2.5-1a7.6 7.6 0 001.7 1L11 21h4l.3-2.9a7.6 7.6 0 001.7-1l2.5 1 2-3.5-2.1-1.6zM13 15.5a3.5 3.5 0 110-7 3.5 3.5 0 010 7z"],
-  ];
+  const IC = {
+    dashboard: "M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z",
+    logbook: "M6 2h11a2 2 0 012 2v16a2 2 0 01-2 2H6a2 2 0 01-2-2V4a2 2 0 012-2zm1 4v2h9V6H7zm0 4v2h9v-2H7zm0 4v2h6v-2H7z",
+    stats: "M4 20h16v2H4zM6 10h3v8H6zm5-6h3v14h-3zm5 9h3v5h-3z",
+    docs: "M12 2a10 10 0 100 20 10 10 0 000-20zm1 11h-5v-2h3V6h2v7z",
+    aircraft: "M21 16v-2l-8-5V3.5a1.5 1.5 0 00-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z",
+    integrity: "M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z",
+    history: "M13 3a9 9 0 00-9 9H1l4 4 4-4H6a7 7 0 112.05 4.95l-1.42 1.42A9 9 0 1013 3zm-1 5v5l4.25 2.52.77-1.28-3.52-2.09V8H12z",
+    settings: "M19.4 13a7.5 7.5 0 000-2l2.1-1.6-2-3.5-2.5 1a7.6 7.6 0 00-1.7-1L15 3h-4l-.3 2.9a7.6 7.6 0 00-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 000 2l-2.1 1.6 2 3.5 2.5-1a7.6 7.6 0 001.7 1L11 21h4l.3-2.9a7.6 7.6 0 001.7-1l2.5 1 2-3.5-2.1-1.6zM13 15.5a3.5 3.5 0 110-7 3.5 3.5 0 010 7z",
+    more: "M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z",
+    logout: "M10 17l1.4-1.4-2.6-2.6H20v-2H8.8l2.6-2.6L10 7l-5 5 5 5zM4 5h8V3H4a2 2 0 00-2 2v14a2 2 0 002 2h8v-2H4V5z",
+    privacy: "M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z",
+  };
+  const NAV_GROUPS = [[null, ["dashboard", "logbook", "stats"]], ["grpRecords", ["docs", "aircraft"]], ["grpQuality", ["integrity", "history"]], [null, ["settings"]]];
+  const NAV = NAV_GROUPS.flatMap((g) => g[1]).map((k) => [k, IC[k]]);
+  const VIEW_ALIAS = { totals: "stats", reports: "stats", wrapped: "stats" };
   const ico = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`;
   function shell() {
     document.body.classList.remove("auth");
@@ -139,13 +143,13 @@
         <div id="sync" class="sync"></div>
         <button class="btn primary add" id="addBtn">+ <span>${t("newEntry")}</span></button>
       </header>
-      <nav class="side">${NAV.map(([k, d]) => `<a href="#${k}" data-v="${k}">${ico(d)}<span>${t(k)}</span></a>`).join("")}</nav>
+      <nav class="side">${NAV_GROUPS.map(([g, ks]) => `${g ? `<small class="ngrp">${t(g)}</small>` : '<span class="nsep"></span>'}${ks.map((k) => `<a href="#${k}" data-v="${k}">${ico(IC[k])}<span>${t(k)}</span><i class="nbadge" data-badge="${k}" hidden></i></a>`).join("")}`).join("")}</nav>
       <main id="view"></main>
       <nav class="tabs">
-        ${["dashboard", "logbook"].map((k) => `<a href="#${k}" data-v="${k}">${ico(NAV.find((n) => n[0] === k)[1])}<span>${t(k)}</span></a>`).join("")}
+        ${["dashboard", "logbook"].map((k) => `<a href="#${k}" data-v="${k}">${ico(IC[k])}<span>${t(k)}</span></a>`).join("")}
         <a href="#entry/new" class="fab" aria-label="${t("newEntry")}">+</a>
-        <a href="#totals" data-v="totals">${ico(NAV[2][1])}<span>${t("totals")}</span></a>
-        <a href="#more" data-v="more">${ico("M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z")}<span>${t("more")}</span></a>
+        <a href="#stats" data-v="stats">${ico(IC.stats)}<span>${t("stats")}</span></a>
+        <a href="#more" data-v="more">${ico(IC.more)}<span>${t("more")}</span><i class="nbadge" data-badge="more" hidden></i></a>
       </nav>`;
     $("#addBtn").addEventListener("click", () => (location.hash = "#entry/new"));
     syncBadge();
@@ -165,11 +169,13 @@
   function route() {
     if (!R.user) return;
     if (!$("#view")) shell();
-    const [v, arg] = (location.hash.slice(1) || "dashboard").split("/");
+    let [v, arg] = (location.hash.slice(1) || "dashboard").split("/");
+    if (VIEW_ALIAS[v]) { arg = v; v = "stats"; }
     current = v;
     document.body.className = document.body.className.replace(/\bv-\S+/g, "").trim() + " v-" + v;
-    $$("nav a[data-v]").forEach((a) => a.classList.toggle("on", a.dataset.v === v));
-    $$(".overlay").forEach((o) => o.remove());
+    $$("nav a[data-v]").forEach((a) => a.classList.toggle("on", a.dataset.v === v || (a.dataset.v === "more" && ["docs", "aircraft", "integrity", "history", "settings"].includes(v))));
+    paintBadges();
+    $$(".overlay").forEach((o) => o.remove()); document.body.classList.remove("modal-open");
     if (window.RXMap) RXMap.destroy();
     const view = $("#view");
     const fn = VIEWS[v] || VIEWS.dashboard;
@@ -179,8 +185,8 @@
   window.addEventListener("hashchange", route);
   let rerenderTimer;
   R.on(() => { clearTimeout(rerenderTimer); rerenderTimer = setTimeout(() => {
-    if (["dashboard", "logbook", "totals", "reports", "docs", "aircraft", "integrity", "wrapped"].includes(current) && !document.querySelector(".overlay")) route();
-    syncBadge(); }, 150); });
+    if (["dashboard", "logbook", "stats", "docs", "aircraft", "integrity"].includes(current) && !document.querySelector(".overlay")) route();
+    syncBadge(); paintBadges(); }, 150); });
   document.addEventListener("rx-profile", () => { applyProfile(); });
 
   function applyProfile() {
@@ -204,67 +210,39 @@
 
   // ---------- PANEL
   let mapPeriod = "all";
-  VIEWS.dashboard = (el) => {
-    const all = R.totals(R.entries), l28 = R.totals(R.sinceDays(28)), l90 = R.totals(R.sinceDays(90)), l12 = R.totals(R.sinceDays(365));
-    const fl = R.entries.filter((r) => r.kind === "FLT"); const last = fl[fl.length - 1];
-    const recentTypes = [...new Set(fl.filter((r) => r.date >= new Date(Date.now() - 730 * 864e5).toISOString().slice(0, 10)).map((r) => r.ac_type))].filter(Boolean);
-    const tg = targets();
-    const prog = [["total", t("totalFlight"), all.total_min], ["mp", "Multi-pilot", all.mp_min], ["pic", "PIC", all.pic_min], ["night", t("night"), all.night_min], ["ifr", "IFR", all.ifr_min]];
-    const docs = R.documents.filter((d) => d.expires).map((d) => [d, statusOf(d.expires)]).sort((a, b) => a[1][1] - b[1][1]).slice(0, 6);
+  const daysUntil = (iso) => Math.floor((Date.parse(iso + "T00:00:00Z") - Date.parse(todayISO() + "T00:00:00Z")) / 864e5);
+  function alertsList() {
+    const A = [];
     const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
     const standalone = window.navigator.standalone || matchMedia("(display-mode: standalone)").matches;
     let dismissed = false; try { dismissed = localStorage.getItem("rx:installDismissed") === "1"; } catch {}
-    el.innerHTML = `
-      ${isIOS && !standalone && !dismissed ? `<div class="panel install"><div><b>${t("installTitle")}</b><p class="fine">${t("installHint")}</p></div><button class="btn small" id="instX">✕</button></div>` : ""}
-      ${(() => { const lb = lastBackup(); if (!R.entries.length || (lb && lb.days < 30)) return "";
-        return `<div class="panel install"><div><b>${lb ? t("backupOld").replace("{n}", lb.days) : t("backupNever")}</b><p class="fine">${t("backupHint")}</p>
-          <div class="btnrow"><button class="btn small primary" id="bkDev">${t("backupDevice")}</button><a class="btn small" href="#settings">${t("backupSettings")}</a></div></div></div>`; })()}
-      ${(() => { const n = openIssues().filter((x) => x.type !== "check").length; return n ? `<a class="panel install alert" href="#integrity"><div><b>${n} ${t("issuesOpen")}</b><p class="fine">${t("issuesHint")}</p></div><span class="chev">›</span></a>` : ""; })()}
-      ${!R.entries.length ? `<div class="panel hero"><h2>${t("welcome")}</h2><p>${t("onboarding")}</p><p class="fine">${t("installHint")}</p>
-        <a class="btn primary" href="#settings">${t("settings")}</a> <a class="btn" href="#entry/new">${t("newEntry")}</a></div>` : ""}
-      <section class="tiles">
-        ${tile(t("totalFlight"), hm(all.total_min), `${all.n} ${t("sectors")}`, "green")}
-        ${tile("PIC", hm(all.pic_min), all.picus_min ? "PICUS " + hm(all.picus_min) : "")}
-        ${tile("Multi-pilot", hm(all.mp_min), `${t("cop")} ${hm(all.cop_min)}`)}
-        ${tile("FSTD", hm(all.fstd_min), `${all.nFstd} ${t("sessions").toLowerCase()}`, "cyan")}
-        ${tile(t("last28"), hm(l28.total_min), "", "")}
-        ${tile(t("last90"), hm(l90.total_min), `${l90.ldg_day + l90.ldg_night} ldg`)}
-        ${tile(t("last12"), hm(l12.total_min), "")}
-        ${tile(t("lastFlight"), last ? dmy(last.date) : "—", last ? h(`${last.dep}–${last.arr} · ${last.ac_type}`) : "")}
-      </section>
-      ${R.entries.some((r) => r.kind === "FLT") ? `<a class="panel wrap-link" href="#wrapped"><span>★</span><div><b>${t("yourYear")} ${todayISO().slice(0, 4)}</b><small>${t("wrapHint")}</small></div><span class="chev">›</span></a>` : ""}
-      <div class="panel"><div class="fhead"><h3>${t("routeMap")}</h3>
-        <div class="seg small" id="mapP">${[["all", t("all")], ["365", t("last12")], ["year", t("thisYear")]].map(([k, l]) => `<button data-mp="${k}" class="${mapPeriod === k ? "on" : ""}">${l}</button>`).join("")}</div></div>
-        <div id="rmap" class="rmap"></div><p class="fine" id="rmapInfo"></p></div>
-      <section class="grid2">
-        <div class="panel"><h3>${t("hoursByMonth")}</h3><div class="chart"><canvas id="cMonth"></canvas></div></div>
-        <div class="panel"><h3>${t("recency")}</h3><p class="fine">${t("recencyTxt")}</p>
-          ${recentTypes.length ? recentTypes.map((ty) => { const until = R.recency(ty); const [c, d] = statusOf(until);
-            return `<div class="row-status"><span class="dot ${c}"></span><b>${h(ty)}</b><span>${until ? (d < 0 ? t("expired") + " " + dmy(until) : t("validUntil") + " " + dmy(until) + ` · ${d} ${t("daysLeft")}`) : t("expired")}</span></div>`; }).join("") : `<p class="muted">—</p>`}
-          <h3 class="mt">${t("docs")}</h3>
-          ${docs.length ? docs.map(([d, [c, n]]) => `<div class="row-status"><span class="dot ${c}"></span><b>${h(d.kind)}</b><span>${h(d.name || "")} · ${dmy(d.expires)} · ${n < 0 ? t("expired") : n + " " + t("daysLeft")}</span></div>`).join("")
-            : `<p class="muted">${t("noDocs")}</p><a class="btn small" href="#docs">${t("addDoc")}</a>`}
-        </div>
-      </section>
-      <section class="grid2">
-        <div class="panel"><h3>${t("milestones")}</h3>
-          ${prog.map(([k, l, v]) => { const p = Math.min(100, (v / 60) / tg[k] * 100);
-            return `<div class="prog"><div><b>${h(l)}</b><span>${hm(v)} / ${tg[k]} h</span></div><div class="bar"><i style="width:${p.toFixed(1)}%" class="${p >= 100 ? "done" : ""}"></i></div></div>`; }).join("")}
-        </div>
-        <div class="panel"><h3>${t("byType")}</h3><div class="chart"><canvas id="cType"></canvas></div></div>
-      </section>`;
-    const bk = $("#bkDev"); if (bk) bk.addEventListener("click", saveDevice);
-    const drawMap = () => {
-      const y0 = todayISO().slice(0, 4) + "-01-01";
-      const rows = mapPeriod === "all" ? R.entries : mapPeriod === "year" ? R.entries.filter((r) => r.date >= y0) : R.sinceDays(365);
-      const info = window.RXMap ? RXMap.render($("#rmap"), rows, apt, { dark: document.documentElement.dataset.theme === "ecam", t }) : null;
-      $("#rmapInfo").textContent = info ? `${info.routes} ${t("routesN")} · ${info.airports} ${t("airports").toLowerCase()} · ${t("mapHint")}` : "";
-    };
-    $$("[data-mp]", el).forEach((b) => b.addEventListener("click", () => { mapPeriod = b.dataset.mp; $$("[data-mp]", el).forEach((x) => x.classList.toggle("on", x === b)); drawMap(); }));
-    if (Object.keys(APT).length) drawMap(); else setTimeout(drawMap, 800);
-    const ix = $("#instX"); if (ix) ix.addEventListener("click", () => { try { localStorage.setItem("rx:installDismissed", "1"); } catch {} ix.parentElement.remove(); });
-    // gráficos
-    if (!window.Chart) return;
+    const nI = openIssues().filter((x) => x.type !== "check").length;
+    if (nI) A.push({ c: "red", title: `${nI} ${t("issuesOpen")}`, sub: t("issuesHint"), href: "#integrity" });
+    const lim = new Date(Date.now() - 365 * 864e5).toISOString().slice(0, 10);
+    for (const ty of [...new Set(R.entries.filter((r) => r.kind === "FLT" && r.date >= lim).map((r) => r.ac_type))].filter(Boolean)) {
+      const u = R.recency(ty); const d = u ? daysUntil(u) : -1;
+      if (d <= 14) A.push({ c: d < 0 ? "red" : "amber", title: `${t("recency")} ${ty}`, sub: d < 0 ? `${t("expired")}${u ? " " + dmy(u) : ""}` : `${t("validUntil")} ${dmy(u)} · ${d} ${t("daysLeft")}`, href: "#stats/totals" });
+    }
+    for (const doc of R.documents.filter((x) => x.expires)) { const d = daysUntil(doc.expires);
+      if (d <= 60) A.push({ c: d < 0 ? "red" : d <= 30 ? "amber" : "cyan", title: doc.kind, sub: `${d < 0 ? t("expired") : d + " " + t("daysLeft")} · ${dmy(doc.expires)}`, href: "#docs" }); }
+    const lb = lastBackup();
+    if (R.entries.length && (!lb || lb.days >= 30)) A.push({ c: "amber", title: lb ? t("backupOld").replace("{n}", lb.days) : t("backupNever"), sub: t("backupHint"), act: `<button class="btn small primary" data-act="backup">${t("saveCopy")}</button>` });
+    if (isIOS && !standalone && !dismissed) A.push({ c: "cyan", title: t("installTitle"), sub: t("installHint"), act: `<button class="btn small" data-act="install" aria-label="OK">✕</button>` });
+    return A;
+  }
+  function alertRow(a) {
+    const inner = `<span class="dot ${a.c}"></span><div><b>${h(a.title)}</b><small>${h(a.sub || "")}</small></div>`;
+    return a.href ? `<a class="arow" href="${a.href}">${inner}<span class="chev">›</span></a>` : `<div class="arow">${inner}${a.act || ""}</div>`;
+  }
+  async function unsignedTraining() {
+    const lim = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
+    const re = /LIFUS|LINE ?TRAINING|TRAINING|CHECK|UPRT|SKILL ?TEST|EXAMEN|LPC|OPC|SUELTA|RELEASE/i; let n = 0;
+    for (const r of R.entries.filter((e) => e.date >= lim && (e.dual_min > 0 || e.picus || re.test(e.remarks || "")))) {
+      const sg = await sigState(r); if (!sg || !sg.valid) n++; }
+    return n;
+  }
+  async function drawCharts() {
+    await window.RXLoad("chart"); if (!$("#cMonth")) return;
     const months = []; const d0 = new Date(); d0.setUTCDate(1);
     for (let i = 23; i >= 0; i--) { const d = new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth() - i, 1)); months.push(d.toISOString().slice(0, 7)); }
     const by = (f) => months.map((m) => R.sum(R.entries.filter((r) => r.date && r.date.startsWith(m)), f) / 60);
@@ -277,9 +255,78 @@
       { label: "FSTD", data: by("fstd_min"), backgroundColor: css("--magenta"), stack: "s" }] },
       options: { maintainAspectRatio: false, plugins: { legend: { labels: { boxWidth: 10 } } }, scales: { x: { stacked: true, grid, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: innerWidth < 600 ? 6 : 12 } }, y: { stacked: true, grid, title: { display: true, text: "h" } } } } });
     const types = [...R.groupBy(R.entries.filter((r) => r.kind === "FLT"), (r) => r.ac_type)].map(([k, rows]) => [k, R.sum(rows, "total_min") / 60]).sort((a, b) => b[1] - a[1]);
-    new Chart($("#cType"), { type: "bar", data: { labels: types.map((x) => x[0]), datasets: [{ label: "h", data: types.map((x) => x[1]), backgroundColor: css("--cyan") }] },
+    if ($("#cType")) new Chart($("#cType"), { type: "bar", data: { labels: types.map((x) => x[0]), datasets: [{ label: "h", data: types.map((x) => x[1]), backgroundColor: css("--cyan") }] },
       options: { indexAxis: "y", maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid }, y: { grid: { display: false } } } } });
+  }
+  VIEWS.dashboard = (el) => {
+    const all = R.totals(R.entries), l28 = R.totals(R.sinceDays(28)), l90 = R.totals(R.sinceDays(90)), l12 = R.totals(R.sinceDays(365));
+    const fl = R.entries.filter((r) => r.kind === "FLT"); const last = fl[fl.length - 1];
+    const tg = targets();
+    const prog = [["total", t("totalFlight"), all.total_min], ["mp", "Multi-pilot", all.mp_min], ["pic", "PIC", all.pic_min], ["night", t("night"), all.night_min], ["ifr", "IFR", all.ifr_min]];
+    const A = alertsList();
+    if (!R.entries.length) {
+      el.innerHTML = `<div class="panel hero"><h2>${t("welcome")}</h2><p>${t("onboarding")}</p>
+        <div class="btnrow"><a class="btn primary" href="#entry/new">${t("newEntry")}</a><a class="btn" href="#settings">${t("importT")}</a></div></div>
+        ${A.length ? `<div class="panel alerts">${A.map(alertRow).join("")}</div>` : ""}`;
+      bindAlerts(el); return;
+    }
+    el.innerHTML = `
+      <section class="hero2 panel">
+        <div class="h-main"><small>${t("totalFlight")}</small><b>${hm(all.total_min)}</b><em>${all.n} ${t("sectors")} · FSTD ${hm(all.fstd_min)}</em></div>
+        <div class="h-side">
+          <div><small>${t("last90")}</small><b>${hm(l90.total_min)}</b><em>${l90.ldg_day + l90.ldg_night} ldg</em></div>
+          <div><small>${t("lastFlight")}</small><b>${last ? dmy(last.date) : "—"}</b><em>${last ? h(`${last.dep}–${last.arr} · ${last.ac_type}`) : ""}</em></div>
+        </div>
+      </section>
+      <div class="panel alerts" id="alerts" ${A.length ? "" : "hidden"}><h3>${t("alerts")}</h3><div id="alist">${A.map(alertRow).join("")}</div>
+        <button class="amore" id="amore" hidden></button></div>
+      <section class="tiles t4">
+        ${tile("PIC", hm(all.pic_min), all.picus_min ? "PICUS " + hm(all.picus_min) : "")}
+        ${tile("Multi-pilot", hm(all.mp_min), `${t("cop")} ${hm(all.cop_min)}`)}
+        ${tile(t("last28"), hm(l28.total_min))}
+        ${tile(t("last12"), hm(l12.total_min))}
+      </section>
+      <div class="panel"><div class="fhead"><h3>${t("routeMap")}</h3>
+        <div class="seg small" id="mapP">${[["all", t("all")], ["365", "12m"], ["year", todayISO().slice(0, 4)]].map(([k, l]) => `<button data-mp="${k}" class="${mapPeriod === k ? "on" : ""}">${l}</button>`).join("")}</div></div>
+        <div id="rmap" class="rmap"></div><p class="fine" id="rmapInfo"></p></div>
+      <section class="grid2">
+        <div class="panel"><h3>${t("hoursByMonth")}</h3><div class="chart"><canvas id="cMonth"></canvas></div></div>
+        <div class="panel"><h3>${t("milestones")}</h3>
+          ${prog.map(([k, l, v]) => { const p = Math.min(100, (v / 60) / tg[k] * 100);
+            return `<div class="prog"><div><b>${h(l)}</b><span>${hm(v)} / ${tg[k]} h</span></div><div class="bar"><i style="width:${p.toFixed(1)}%" class="${p >= 100 ? "done" : ""}"></i></div></div>`; }).join("")}
+        </div>
+      </section>
+      <div class="panel"><h3>${t("byType")}</h3><div class="chart short"><canvas id="cType"></canvas></div></div>
+      <a class="panel wrap-link" href="#stats/wrapped"><span>★</span><div><b>${t("yourYear")} ${todayISO().slice(0, 4)}</b><small>${t("wrapHint")}</small></div><span class="chev">›</span></a>`;
+    bindAlerts(el);
+    const fold = () => { const rows = $$("#alist .arow"); const more = $("#amore"); if (!more) return; let exp = more.dataset.exp === "1";
+      rows.forEach((r, i) => (r.hidden = !exp && i >= 3)); more.hidden = rows.length <= 3;
+      more.textContent = exp ? t("showLess") : `${t("showAll")} (${rows.length})`; };
+    $("#amore").addEventListener("click", () => { $("#amore").dataset.exp = $("#amore").dataset.exp === "1" ? "0" : "1"; fold(); });
+    fold();
+    unsignedTraining().then((n) => { if (!n || !$("#alist")) return; $("#alerts").hidden = false;
+      $("#alist").insertAdjacentHTML("afterbegin", alertRow({ c: "amber", title: `${n} ${t("unsignedN")}`, sub: t("unsignedHint"), href: "#logbook" })); fold(); });
+    const drawMap = async () => {
+      await window.RXLoad("map"); if (!$("#rmap")) return;
+      const y0 = todayISO().slice(0, 4) + "-01-01";
+      const rows = mapPeriod === "all" ? R.entries : mapPeriod === "year" ? R.entries.filter((r) => r.date >= y0) : R.sinceDays(365);
+      const info = RXMap.render($("#rmap"), rows, apt, { dark: document.documentElement.dataset.theme === "ecam", t });
+      $("#rmapInfo").textContent = info ? `${info.routes} ${t("routesN")} · ${info.airports} ${t("airports").toLowerCase()} · ${t("mapHint")}` : "";
+    };
+    $$("[data-mp]", el).forEach((b) => b.addEventListener("click", () => { mapPeriod = b.dataset.mp; $$("[data-mp]", el).forEach((x) => x.classList.toggle("on", x === b)); drawMap(); }));
+    if (Object.keys(APT).length) drawMap(); else setTimeout(drawMap, 800);
+    drawCharts();
   };
+  function bindAlerts(el) {
+    $$("[data-act=backup]", el).forEach((b) => b.addEventListener("click", saveDevice));
+    $$("[data-act=install]", el).forEach((b) => b.addEventListener("click", () => { try { localStorage.setItem("rx:installDismissed", "1"); } catch {} b.closest(".arow").remove(); }));
+  }
+  function paintBadges() {
+    const n = (() => { try { return openIssues().filter((x) => x.type !== "check").length; } catch { return 0; } })();
+    const docs = R.documents.filter((x) => x.expires && daysUntil(x.expires) <= 30).length;
+    const set = (k, v) => $$(`[data-badge="${k}"]`).forEach((b) => { b.textContent = v || ""; b.hidden = !v; });
+    set("integrity", n); set("docs", docs); set("more", n + docs);
+  }
 
   // ---------- LIBRO
   let logFilter = { kind: "all", q: "", year: "", limit: 150 };
@@ -346,14 +393,13 @@
   VIEWS.logbook = (el) => {
     const years = [...new Set(R.entries.map((r) => r.date.slice(0, 4)))].sort().reverse();
     el.innerHTML = `
+      ${selMode ? `<div class="panel selhead"><div><b>✍ ${t("signMany")}</b><small>${t("selectHint")}</small></div></div>` : `
       <div class="toolbar panel">
-        <div class="seg">${[["all", t("all")], ["FLT", t("flights")], ["FSTD", "FSTD"]].map(([k, l]) => `<button data-k="${k}" class="${logFilter.kind === k ? "on" : ""}">${l}</button>`).join("")}</div>
-        <select id="yr" aria-label="${t("year")}"><option value="">${t("year")}: ${t("all").toLowerCase()}</option>${years.map((y) => `<option ${y === logFilter.year ? "selected" : ""}>${y}</option>`).join("")}</select>
-        <input id="q" type="search" placeholder="${t("search")}" value="${h(logFilter.q)}">
-        <button class="btn" id="pdfBtn">PDF EASA</button>
-        <button class="btn ${selMode ? "primary" : ""}" id="signMode">✍ ${t("signMany")}</button>
-      </div>
-      ${selMode ? `<p class="fine">${t("selectHint")}</p>` : ""}
+        <div class="tb1"><div class="seg">${[["all", t("all")], ["FLT", t("flights")], ["FSTD", "FSTD"]].map(([k, l]) => `<button data-k="${k}" class="${logFilter.kind === k ? "on" : ""}">${l}</button>`).join("")}</div>
+          <button class="btn icon" id="lbMenu" aria-label="${t("more")}">⋯</button></div>
+        <div class="tb2"><input id="q" type="search" placeholder="${t("search")}" value="${h(logFilter.q)}">
+          <select id="yr" aria-label="${t("year")}"><option value="">${t("year")}</option>${years.map((y) => `<option ${y === logFilter.year ? "selected" : ""}>${y}</option>`).join("")}</select></div>
+      </div>`}
       <div id="list"></div>
       <div id="selBar" class="selbar" ${selMode ? "" : "hidden"}><span id="selN"></span><button class="btn" id="selX">${t("cancel")}</button><button class="btn primary" id="selGo">✍ ${t("sign")}</button></div>`;
     const draw = () => {
@@ -363,7 +409,7 @@
       const n = rows.length; const allRows = rows; rows = rows.slice().reverse().slice(0, logFilter.limit);
       const mtot = new Map(); for (const r of allRows) { const k = r.date.slice(0, 7); const o = mtot.get(k) || { f: 0, s: 0, n: 0 }; o.f += r.total_min || 0; o.s += r.fstd_min || 0; o.n++; mtot.set(k, o); }
       const mlabel = (k) => new Date(k + "-01T00:00:00Z").toLocaleDateString(lang, { month: "long", year: "numeric", timeZone: "UTC" });
-      const msum = (k) => { const o = mtot.get(k); return `<b>${hm(o.f)}</b>${o.s ? ` · FSTD ${hm(o.s)}` : ""} · ${o.n}`; };
+      const msum = (k) => { const o = mtot.get(k); return [o.f ? `<b>${hm(o.f)}</b>` : "", o.s ? `FSTD ${hm(o.s)}` : ""].filter(Boolean).join(" · "); };
       const withHeads = (fn, headFn) => { let last = ""; return rows.map((r) => { const k = r.date.slice(0, 7); const hd = k !== last ? headFn(k) : ""; last = k; return hd + fn(r); }).join(""); };
       $("#list").innerHTML = !R.entries.length ? `<div class="panel muted">${t("noEntries")}</div>` : `
         <table class="log">
@@ -381,12 +427,18 @@
       const m = $("#more"); if (m) m.addEventListener("click", () => { logFilter.limit += 300; draw(); });
       paintSigBadges(el);
     };
-    $$(".seg button", el).forEach((b) => b.addEventListener("click", () => { logFilter.kind = b.dataset.k; VIEWS.logbook(el); }));
-    $("#yr").addEventListener("change", (e) => { logFilter.year = e.target.value; draw(); });
-    $("#q").addEventListener("input", (e) => { logFilter.q = e.target.value; draw(); });
-    $("#pdfBtn").addEventListener("click", () => IO.exportPdf());
+    $$(".seg button[data-k]", el).forEach((b) => b.addEventListener("click", () => { logFilter.kind = b.dataset.k; VIEWS.logbook(el); }));
+    if ($("#yr")) $("#yr").addEventListener("change", (e) => { logFilter.year = e.target.value; draw(); });
+    if ($("#q")) $("#q").addEventListener("input", (e) => { logFilter.q = e.target.value; draw(); });
+    if ($("#lbMenu")) $("#lbMenu").addEventListener("click", () => modal(`<h3>${t("logbook")}</h3><div class="menu sheet">
+        <a href="#" data-m="sign">✍ <span>${t("signMany")}</span></a><a href="#" data-m="pdf">📄 <span>${t("exportPdf")}</span></a>
+        <a href="#" data-m="xlsx">📊 <span>${t("exportXlsx")}</span></a><a href="#" data-m="csv">🗂 <span>${t("exportCsv")}</span></a>
+        <a href="#entry/new">＋ <span>${t("newEntry")}</span></a></div>`, (o, close) => {
+        $$("[data-m]", o).forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); close(); const m = a.dataset.m;
+          if (m === "sign") { selMode = true; sel.clear(); VIEWS.logbook(el); } else if (m === "pdf") IO.exportPdf(); else if (m === "xlsx") IO.exportXlsx(); else IO.exportCsv(); }));
+      }));
     const updSel = () => { $("#selN").textContent = `${sel.size} ${t("selected")}`; $("#selGo").disabled = !sel.size; };
-    $("#signMode").addEventListener("click", () => { selMode = !selMode; sel.clear(); VIEWS.logbook(el); });
+
     $("#selX").addEventListener("click", () => { selMode = false; sel.clear(); VIEWS.logbook(el); });
     $("#selGo").addEventListener("click", () => signModal(R.entries.filter((r) => sel.has(r.id)), () => { selMode = false; sel.clear(); VIEWS.logbook(el); }));
     updSel();
@@ -459,6 +511,7 @@
           <p class="fine">${t("notFlightTime")}</p>`;
       } else {
         body.innerHTML = `
+          <h4 class="fsec">${t("secAircraft")}</h4>
           <div class="g4">
             <label class="fspan">${t("date")} <small>UTC</small><input type="date" name="date" value="${r.date}" required></label>
             <label>${t("reg")}<input name="registration" list="dl-reg" value="${h(r.registration || "")}" style="text-transform:uppercase" required></label>
@@ -466,12 +519,14 @@
             <label>${t("class")}<select name="cls"><option value="SE">SP SE</option><option value="ME">SP ME</option><option value="MP">MP</option></select></label>
           </div>
           <p class="hint" id="newAc" hidden>${t("newAircraft")}</p>
+          <h4 class="fsec">${t("secRoute")}</h4>
           <div class="g4">
             <label>${t("dep")} <button type="button" class="mini" id="swap" title="${t("swap")}">⇄</button><input name="dep" value="${h(r.dep || "")}" maxlength="4" style="text-transform:uppercase" placeholder="ICAO"><small class="apt" id="depN"></small></label>
             <label>${t("off")} <button type="button" class="mini" data-now="off_time">${t("now")}</button><input name="off_time" class="tm" inputmode="numeric" maxlength="5" placeholder="hh:mm" value="${hh(r.off_time)}"></label>
             <label>${t("arr")}<input name="arr" value="${h(r.arr || "")}" maxlength="4" style="text-transform:uppercase" placeholder="ICAO"><small class="apt" id="arrN"></small></label>
             <label>${t("on")} <button type="button" class="mini" data-now="on_time">${t("now")}</button><input name="on_time" class="tm" inputmode="numeric" maxlength="5" placeholder="hh:mm" value="${hh(r.on_time)}"></label>
           </div>
+          <h4 class="fsec">${t("secFunction")}</h4>
           <div class="g4">
             ${durIn("total_min", t("total") + ` <small class="auto">${t("auto")}</small>`, r.total_min)}
             <label>${t("role")}<select name="role">${[["pic", "PIC"], ["cop", t("cop")], ["dual", t("dual")], ["instr", t("instr")]].map(([k, l]) => `<option value="${k}" ${role === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
@@ -482,6 +537,7 @@
               <label class="tg"><input type="checkbox" name="ifrFull" ${ifrFull ? "checked" : ""}> IFR</label>
             </div>
           </div>
+          <details class="autobox" id="autoBox"><summary><span>${t("autoCalc")}</span><span id="autoSum" class="asum"></span></summary>
           <div class="g6">
             ${durIn("night_min", t("night") + ` <small class="auto" id="nAuto">${t("auto")}</small>`, r.night_min)}
             ${durIn("ifr_min", "IFR", r.ifr_min)}
@@ -495,8 +551,8 @@
               ${durIn("se_min", "SP SE", r.se_min)}${durIn("me_min", "SP ME", r.me_min)}${durIn("mp_min", "MP", r.mp_min)}
               ${durIn("pic_min", "PIC", r.pic_min)}${durIn("cop_min", t("cop"), r.cop_min)}${durIn("dual_min", t("dual"), r.dual_min)}${durIn("instr_min", t("instr"), r.instr_min)}
             </div></details>
-          <label>${t("remarks")}<textarea name="remarks" rows="2">${h(r.remarks || "")}</textarea></label>
-          <p class="fine" id="nightInfo"></p>`;
+          <p class="fine" id="nightInfo"></p></details>
+          <label>${t("remarks")}<textarea name="remarks" rows="2">${h(r.remarks || "")}</textarea></label>`;
         const ac = R.aircraft.find((a) => a.registration === r.registration);
         $('[name="cls"]', el).value = ac ? ac.class : r.mp_min ? "MP" : r.me_min ? "ME" : "SE";
       }
@@ -560,6 +616,8 @@
       r.night_min = P("night_min");
       for (const n of ["ldg_day", "ldg_night", "to_day", "to_night"]) r[n] = parseInt(v(n), 10) || 0;
       if (!r.pic_name && role === "pic" && !picus) r.pic_name = "SELF";
+      const as = $("#autoSum"); if (as) as.textContent = [`${t("night")} ${hm(r.night_min)}`, `IFR ${hm(r.ifr_min)}`,
+        `${t("toShort")} ${r.to_day}/${r.to_night}`, `${t("ldgShort")} ${r.ldg_day}/${r.ldg_night}`].join(" · ");
       showChecks();
     }
     function showChecks() {
@@ -639,6 +697,15 @@
     }
     drawBody();
     if (!isNew) drawSigs();
+  };
+
+  // ---------- ESTADÍSTICAS
+  let statsTab = "totals";
+  VIEWS.stats = (el, sub) => {
+    if (sub && ["totals", "reports", "wrapped"].includes(sub)) statsTab = sub;
+    el.innerHTML = `<div class="seg wide stabs">${[["totals", t("totals")], ["reports", t("reportT")], ["wrapped", t("wrapped")]].map(([k, l]) => `<button data-st="${k}" class="${statsTab === k ? "on" : ""}">${l}</button>`).join("")}</div><div id="sbody"></div>`;
+    $$("[data-st]", el).forEach((b) => b.addEventListener("click", () => { statsTab = b.dataset.st; history.replaceState(null, "", "#stats/" + statsTab); VIEWS.stats(el); }));
+    VIEWS[statsTab]($("#sbody"));
   };
 
   // ---------- TOTALES
@@ -777,9 +844,13 @@
 
   // ---------- MÁS (móvil)
   VIEWS.more = (el) => {
-    el.innerHTML = `<div class="panel menu">${NAV.slice(2).map(([k, d]) => `<a href="#${k}">${ico(d)}<span>${t(k)}</span></a>`).join("")}
-      <a href="#" id="lo">${ico("M10 17l1.4-1.4-2.6-2.6H20v-2H8.8l2.6-2.6L10 7l-5 5 5 5zM4 5h8V3H4a2 2 0 00-2 2v14a2 2 0 002 2h8v-2H4V5z")}<span>${t("logout")}</span></a></div>`;
+    el.innerHTML = NAV_GROUPS.slice(1).map(([g, ks]) => `<div class="panel menu">${g ? `<small class="ngrp">${t(g)}</small>` : ""}
+      ${ks.map((k) => `<a href="#${k}">${ico(IC[k])}<span>${t(k)}</span><i class="nbadge" data-badge="${k}" hidden></i><span class="chev">›</span></a>`).join("")}</div>`).join("") +
+      `<div class="panel menu"><a href="#" id="pv">${ico(IC.privacy)}<span>${t("privacy")}</span></a><a href="#" id="lo">${ico(IC.logout)}<span>${t("logout")}</span></a></div>
+      <p class="fine center">RIXARLOG v${window.RX_CONFIG.version}</p>`;
     $("#lo").addEventListener("click", (e) => { e.preventDefault(); sb.auth.signOut(); });
+    $("#pv").addEventListener("click", (e) => { e.preventDefault(); showPrivacy(); });
+    paintBadges();
   };
 
   // ---------- AJUSTES
@@ -834,6 +905,7 @@
     $("#privS").addEventListener("click", (e) => { e.preventDefault(); showPrivacy(); });
     drawBatches(); drawNotify();
     $("#mySig").addEventListener("click", () => signModal(null, () => route(), { self: true }));
+    collapsify(el);
     $("#bkFreq").value = (s.backup || {}).freq || "weekly";
     $("#bkSave").addEventListener("click", async () => {
       await R.saveProfile({ settings: { ...st(), backup: { enabled: $("#bkOn").checked, freq: $("#bkFreq").value, email: $("#bkTo").value.trim() || null } } });
@@ -1083,7 +1155,7 @@
       <div class="panel"><h3>${t("routeMap")} ${wrapYear}</h3><div id="wmap" class="rmap"></div></div>`;
     $("#wy").addEventListener("change", (e) => { wrapYear = e.target.value; VIEWS.wrapped(el); });
     $("#wShare").addEventListener("click", () => shareWrapped(d));
-    setTimeout(() => window.RXMap && RXMap.render($("#wmap"), d.F, apt, { dark: document.documentElement.dataset.theme === "ecam", t }), 30);
+    window.RXLoad("map").then(() => $("#wmap") && RXMap.render($("#wmap"), d.F, apt, { dark: document.documentElement.dataset.theme === "ecam", t }));
   };
   async function shareWrapped(d) {
     const W = 1080, H = 1350, c = document.createElement("canvas"); c.width = W; c.height = H; const x = c.getContext("2d");
@@ -1106,6 +1178,20 @@
     const file = new File([blob], `RIXARLOG_Wrapped_${d.year}.png`, { type: "image/png" });
     if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: `RIXARLOG ${d.year}` }); return; } catch (e) { if (e.name === "AbortError") return; } }
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = file.name; document.body.appendChild(a); a.click(); setTimeout(() => a.remove(), 500);
+  }
+
+  // convierte cada panel con título en sección plegable (recuerda cuáles están abiertas)
+  function collapsify(el) {
+    let open = {}; try { open = JSON.parse(localStorage.getItem("rx:sect") || "{}"); } catch {}
+    $$(":scope > .panel", el).forEach((p, i) => {
+      const h3 = p.querySelector(":scope > h3"); if (!h3) return;
+      const key = "s" + i; const d = document.createElement("details"); d.className = "panel sect";
+      d.open = open[key] !== undefined ? open[key] : i === 0;
+      const sm = document.createElement("summary"); sm.appendChild(h3); d.appendChild(sm);
+      while (p.firstChild) d.appendChild(p.firstChild);
+      p.replaceWith(d);
+      d.addEventListener("toggle", () => { open[key] = d.open; try { localStorage.setItem("rx:sect", JSON.stringify(open)); } catch {} });
+    });
   }
 
   // ---------- arranque

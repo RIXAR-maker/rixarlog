@@ -42,7 +42,8 @@
   }
 
   // ---------- Excel
-  function exportXlsx(opts = {}) {
+  async function exportXlsx(opts = {}) {
+    await window.RXLoad("xlsx");
     const X = window.XLSX;
     const head = ["Fecha","Tipo anot.","Salida","OFF UTC","Llegada","ON UTC","Tipo","Matrícula","SP SE","SP ME","MP","Total","PIC",
       "Aterr. día","Aterr. noche","Noche","IFR","PIC","Copiloto","Doble mando","Instructor","PICUS","FSTD tipo","FSTD","Observaciones"];
@@ -75,6 +76,7 @@
 
   // ---------- PDF EASA (AMC1 FCL.050)
   async function exportPdf(opts = {}) {
+    await window.RXLoad("pdf");
     const { jsPDF } = window.jspdf;
     // firmas: válidas si la huella guardada coincide con el contenido actual de la anotación
     const sigMap = new Map();
@@ -182,7 +184,8 @@
       "", `RIXARLOG · ${stamp()}`];
     return L.join("\n");
   }
-  function selectionPdf() {
+  async function selectionPdf() {
+    await window.RXLoad("pdf");
     const { jsPDF } = window.jspdf; const doc = new jsPDF({ unit: "mm", format: "a4" });
     const d = selectionData(); const P = S().profile || {};
     doc.setFillColor(11, 45, 91); doc.rect(0, 0, 210, 26, "F");
@@ -307,7 +310,7 @@
 
   // copia al dispositivo: menú compartir (iCloud Drive / Archivos) o descarga
   async function saveToDevice() {
-    const files = [exportJson({ file: true }), exportXlsx({ file: true })];
+    const files = [exportJson({ file: true }), await exportXlsx({ file: true })];
     if (navigator.canShare && navigator.canShare({ files })) {
       try { await navigator.share({ files, title: "RIXARLOG backup" }); markExport(); return "shared"; }
       catch (e) { if (e.name === "AbortError") return "cancel"; }
