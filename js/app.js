@@ -51,6 +51,19 @@
   }
   window.RXApp.showPrivacy = showPrivacy;
 
+  // ---------- política de contraseñas (sustituye a la protección de pago de Supabase)
+  async function checkPassword(pw) {
+    if (!pw || pw.length < 10 || !/[a-z]/.test(pw) || !/[A-Z]/.test(pw) || !/\d/.test(pw)) throw new Error(t("pwRules"));
+    try { // Have I Been Pwned, k-anonimato: solo se envían los 5 primeros caracteres del hash SHA-1
+      const buf = await crypto.subtle.digest("SHA-1", new TextEncoder().encode(pw));
+      const hex = [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+      const res = await fetch("https://api.pwnedpasswords.com/range/" + hex.slice(0, 5), { headers: { "Add-Padding": "true" } });
+      if (res.ok) { const txt = await res.text();
+        if (txt.split("\n").some((l) => { const [suf, n] = l.trim().split(":"); return suf === hex.slice(5) && Number(n) > 0; })) throw new Error(t("pwPwned")); }
+    } catch (e) { if (e.message === t("pwPwned")) throw e; /* sin conexión al servicio: se aplican solo las reglas */ }
+  }
+  window.RXApp.checkPassword = checkPassword;
+
   // ---------- auth
   const root = $("#app");
   let mode = "login";
@@ -61,11 +74,11 @@
         <div class="auth-card panel">
           <div class="brand big"><img src="icons/icon-192.png" alt=""><div><b>RIXARLOG</b><small>${t("tagline")}</small></div></div>
           ${mode === "recover" ? `
-            <label>${t("newPassword")}<input id="pw" type="password" autocomplete="new-password" minlength="8" required></label>
+            <label>${t("newPassword")}<input id="pw" type="password" autocomplete="new-password" minlength="10" required><small>${t("pwRules")}</small></label>
             <button class="btn primary" id="go">${t("savePassword")}</button>` : `
           ${mode === "signup" ? `<label>${t("fullName")}<input id="fn" autocomplete="name" required></label>` : ""}
           <label>${t("email")}<input id="em" type="email" autocomplete="email" required></label>
-          ${mode !== "reset" ? `<label>${t("password")}<input id="pw" type="password" autocomplete="${mode === "signup" ? "new-password" : "current-password"}" minlength="8" required></label>` : ""}
+          ${mode !== "reset" ? `<label>${t("password")}<input id="pw" type="password" autocomplete="${mode === "signup" ? "new-password" : "current-password"}" minlength="10" required>${mode === "signup" ? `<small>${t("pwRules")}</small>` : ""}</label>` : ""}
           <button class="btn primary" id="go">${mode === "signup" ? t("signup") : mode === "reset" ? t("sendReset") : t("login")}</button>
           <div class="auth-links">
             ${mode === "login" ? `<a href="#" data-m="reset">${t("forgot")}</a><a href="#" data-m="signup">${t("noAccount")}</a>` : `<a href="#" data-m="login">${t("haveAccount")}</a>`}
@@ -86,6 +99,7 @@
         if (mode === "login") {
           const { error } = await sb.auth.signInWithPassword({ email: em, password: pw }); if (error) throw error;
         } else if (mode === "signup") {
+          await checkPassword(pw);
           const { data, error } = await sb.auth.signUp({ email: em, password: pw, options: { data: { full_name: $("#fn").value.trim() }, emailRedirectTo: redirect } });
           if (error) throw error;
           if (!data.session) { mode = "login"; renderAuth(t("checkEmail")); }
@@ -93,6 +107,7 @@
           const { error } = await sb.auth.resetPasswordForEmail(em, { redirectTo: redirect }); if (error) throw error;
           renderAuth(t("resetSent"));
         } else if (mode === "recover") {
+          await checkPassword(pw);
           const { error } = await sb.auth.updateUser({ password: pw }); if (error) throw error;
           mode = "login"; toast(t("savedOk"), "ok"); route();
         }
@@ -708,7 +723,7 @@
         <p class="fine"><span class="chip amber">beta</span> ${t("importDev")}</p><div id="imp"></div>
         <h4>${t("batches")}</h4><div id="batches" class="fine">…</div></div>
       <div class="panel"><h3>${t("account")}</h3><p class="fine">${h(R.user.email)} · ${t("privacyNote")}</p>
-        <div class="btnrow"><button class="btn" id="lo2">${t("logout")}</button><button class="btn danger" id="delAcc">${t("deleteAccount")}</button></div>
+        <div class="btnrow"><button class="btn" id="chPw">${t("changePw")}</button><button class="btn" id="lo2">${t("logout")}</button><button class="btn danger" id="delAcc">${t("deleteAccount")}</button></div>
         <p class="fine"><a href="#" id="privS">${t("privacy")}</a> · RIXARLOG v${window.RX_CONFIG.version}</p></div>`;
     $("#privS").addEventListener("click", (e) => { e.preventDefault(); showPrivacy(); });
     drawBatches();
@@ -733,6 +748,17 @@
     $("#xCsv").addEventListener("click", () => IO.exportCsv());
     $("#xJson").addEventListener("click", () => IO.exportJson());
     $("#lo2").addEventListener("click", () => sb.auth.signOut());
+    $("#chPw").addEventListener("click", () => modal(`<h3>${t("changePw")}</h3>
+      <label>${t("newPassword")}<input id="np1" type="password" autocomplete="new-password"><small>${t("pwRules")}</small></label>
+      <label>${t("repeatPw")}<input id="np2" type="password" autocomplete="new-password"></label><p class="msg err" id="npE"></p>
+      <div class="factions"><span class="grow"></span><button class="btn" data-close>${t("cancel")}</button><button class="btn primary" id="npS">${t("save")}</button></div>`, (o, close) => {
+      $("#npS", o).addEventListener("click", async () => {
+        const a = $("#np1", o).value, b2 = $("#np2", o).value; $("#npE", o).textContent = "";
+        try { if (a !== b2) throw new Error(t("pwMismatch")); await checkPassword(a);
+          const { error } = await sb.auth.updateUser({ password: a }); if (error) throw error; close(); toast(t("savedOk"), "ok");
+        } catch (e) { $("#npE", o).textContent = e.message; }
+      });
+    }));
     $("#delAcc").addEventListener("click", async () => {
       const w = prompt(t("confirmDeleteAccount")); if (!w || !/^(BORRAR|DELETE)$/i.test(w.trim())) return;
       try { await R.deleteAccount(); location.reload(); } catch (e) { alert(e.message); }
