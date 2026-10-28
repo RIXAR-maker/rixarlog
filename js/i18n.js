@@ -1,6 +1,7 @@
 window.RX_I18N = {
   es: {
     tagline: "Libro de vuelo electrónico · AMC1 FCL.050",
+    year: "Año", picNamePh: "Nombre del comandante", tbl_entries: "vuelo", tbl_aircraft: "aeronave", tbl_documents: "documento",
     login: "Iniciar sesión", signup: "Crear cuenta", email: "Email", password: "Contraseña",
     fullName: "Nombre completo", forgot: "¿Has olvidado la contraseña?", sendReset: "Enviar enlace",
     haveAccount: "¿Ya tienes cuenta? Inicia sesión", noAccount: "¿No tienes cuenta? Créala",
@@ -57,6 +58,7 @@ window.RX_I18N = {
   },
   en: {
     tagline: "Electronic pilot logbook · AMC1 FCL.050",
+    year: "Year", picNamePh: "Commander name", tbl_entries: "entry", tbl_aircraft: "aircraft", tbl_documents: "document",
     login: "Sign in", signup: "Create account", email: "Email", password: "Password",
     fullName: "Full name", forgot: "Forgot your password?", sendReset: "Send link",
     haveAccount: "Already have an account? Sign in", noAccount: "No account? Create one",

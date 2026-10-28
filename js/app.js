@@ -142,6 +142,7 @@
     if (!$("#view")) shell();
     const [v, arg] = (location.hash.slice(1) || "dashboard").split("/");
     current = v;
+    document.body.className = document.body.className.replace(/\bv-\S+/g, "").trim() + " v-" + v;
     $$("nav a[data-v]").forEach((a) => a.classList.toggle("on", a.dataset.v === v));
     const view = $("#view");
     const fn = VIEWS[v] || VIEWS.dashboard;
@@ -224,7 +225,7 @@
       { label: t("cop"), data: by("cop_min"), backgroundColor: css("--cyan"), stack: "f" },
       { label: t("dual"), data: by("dual_min"), backgroundColor: css("--amber"), stack: "f" },
       { label: "FSTD", data: by("fstd_min"), backgroundColor: css("--magenta"), stack: "s" }] },
-      options: { maintainAspectRatio: false, plugins: { legend: { labels: { boxWidth: 10 } } }, scales: { x: { stacked: true, grid }, y: { stacked: true, grid, title: { display: true, text: "h" } } } } });
+      options: { maintainAspectRatio: false, plugins: { legend: { labels: { boxWidth: 10 } } }, scales: { x: { stacked: true, grid, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: innerWidth < 600 ? 6 : 12 } }, y: { stacked: true, grid, title: { display: true, text: "h" } } } } });
     const types = [...R.groupBy(R.entries.filter((r) => r.kind === "FLT"), (r) => r.ac_type)].map(([k, rows]) => [k, R.sum(rows, "total_min") / 60]).sort((a, b) => b[1] - a[1]);
     new Chart($("#cType"), { type: "bar", data: { labels: types.map((x) => x[0]), datasets: [{ label: "h", data: types.map((x) => x[1]), backgroundColor: css("--cyan") }] },
       options: { indexAxis: "y", maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid }, y: { grid: { display: false } } } } });
@@ -237,7 +238,7 @@
     el.innerHTML = `
       <div class="toolbar panel">
         <div class="seg">${[["all", t("all")], ["FLT", t("flights")], ["FSTD", "FSTD"]].map(([k, l]) => `<button data-k="${k}" class="${logFilter.kind === k ? "on" : ""}">${l}</button>`).join("")}</div>
-        <select id="yr"><option value="">${t("all")}</option>${years.map((y) => `<option ${y === logFilter.year ? "selected" : ""}>${y}</option>`).join("")}</select>
+        <select id="yr" aria-label="${t("year")}"><option value="">${t("year")}: ${t("all").toLowerCase()}</option>${years.map((y) => `<option ${y === logFilter.year ? "selected" : ""}>${y}</option>`).join("")}</select>
         <input id="q" type="search" placeholder="${t("search")}" value="${h(logFilter.q)}">
         <button class="btn" id="pdfBtn">PDF EASA</button>
       </div>
@@ -326,7 +327,7 @@
       } else {
         body.innerHTML = `
           <div class="g4">
-            <label>${t("date")} <small>UTC</small><input type="date" name="date" value="${r.date}" required></label>
+            <label class="fspan">${t("date")} <small>UTC</small><input type="date" name="date" value="${r.date}" required></label>
             <label>${t("reg")}<input name="registration" list="dl-reg" value="${h(r.registration || "")}" style="text-transform:uppercase" required></label>
             <label>${t("type")}<input name="ac_type" value="${h(r.ac_type || "")}" style="text-transform:uppercase"></label>
             <label>${t("class")}<select name="cls"><option value="SE">SP SE</option><option value="ME">SP ME</option><option value="MP">MP</option></select></label>
@@ -341,7 +342,7 @@
           <div class="g4">
             ${durIn("total_min", t("total") + ` <small class="auto">${t("auto")}</small>`, r.total_min)}
             <label>${t("role")}<select name="role">${[["pic", "PIC"], ["cop", t("cop")], ["dual", t("dual")], ["instr", t("instr")]].map(([k, l]) => `<option value="${k}" ${role === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
-            <label>${t("picName")}<input name="pic_name" list="dl-names" value="${h(r.pic_name || "")}" placeholder="SELF"></label>
+            <label>${t("picName")}<input name="pic_name" list="dl-names" value="${h(r.pic_name || "")}" placeholder="${role === "pic" ? "SELF" : t("picNamePh")}"></label>
             <div class="toggles">
               <label class="tg"><input type="checkbox" name="picus" ${picus ? "checked" : ""}> PICUS</label>
               <label class="tg"><input type="checkbox" name="pf" ${r.pf ? "checked" : ""}> PF</label>
@@ -389,7 +390,8 @@
         if (document.activeElement !== g("total_min")) setV("total_min", hm(b));
       }
       r.total_min = P("total_min");
-      role = g("role").value; picus = g("picus").checked; r.pf = g("pf").checked; ifrFull = g("ifrFull").checked;
+      role = g("role").value; picus = g("picus").checked;
+      g("pic_name").placeholder = role === "pic" && !picus ? "SELF" : t("picNamePh"); r.pf = g("pf").checked; ifrFull = g("ifrFull").checked;
       if (role === "pic" && !r.pic_name && document.activeElement !== g("pic_name")) { /* SELF por defecto */ }
       const man = $("#man").open;
       if (!man) {
@@ -580,7 +582,7 @@
         last = rows[rows.length - 1].changed_at;
         $("#hl").insertAdjacentHTML("beforeend", rows.map((x) => `<div class="hrow ${x.action}"><time>${new Date(x.changed_at).toLocaleString(lang)}</time>
           <span class="chip ${x.action === "DELETE" ? "red" : x.action === "INSERT" ? "green" : "amber"}">${x.action === "INSERT" ? t("created") : x.action === "UPDATE" ? t("updated") : t("deleted")}</span>
-          <span class="tbl">${h(x.table_name)}</span><b>${h(label(x.new_data || x.old_data))}</b>${x.action === "UPDATE" ? `<div class="diff">${diff(x.old_data, x.new_data)}</div>` : ""}</div>`).join(""));
+          <span class="tbl">${h(t("tbl_" + x.table_name))}</span><b>${h(label(x.new_data || x.old_data))}</b>${x.action === "UPDATE" ? `<div class="diff">${diff(x.old_data, x.new_data)}</div>` : ""}</div>`).join(""));
         if (rows.length < 100) $("#hm").hidden = true;
       } catch (e) { $("#hl").innerHTML = `<p class="msg err">${h(e.message)}</p>`; }
     };
