@@ -810,6 +810,7 @@
         <h4>${t("targets")}</h4>
         <div class="g5">${Object.keys(DEFAULT_TARGETS).map((k) => `<label>${k === "total" ? "Total" : k === "mp" ? "MP" : k === "pic" ? "PIC" : k === "night" ? t("night") : "IFR"} (h)<input type="number" min="0" data-tg="${k}" value="${tg[k]}"></label>`).join("")}</div>
         <button class="btn primary" id="saveP">${t("save")}</button></div>
+      <div class="panel"><h3>${t("notifications")}</h3><div id="ntf"></div></div>
       <div class="panel"><h3>${t("backups")}</h3>
         <p class="fine">${(() => { const lb = lastBackup(); return lb ? `${t("lastBackup")}: ${new Date(lb.at).toLocaleString(lang)} (${lb.days} ${t("daysLeft")})` : t("backupNever"); })()}</p>
         <div class="g3">
@@ -831,7 +832,7 @@
         <div class="btnrow"><button class="btn" id="chPw">${t("changePw")}</button><button class="btn" id="lo2">${t("logout")}</button><button class="btn danger" id="delAcc">${t("deleteAccount")}</button></div>
         <p class="fine"><a href="#" id="privS">${t("privacy")}</a> · RIXARLOG v${window.RX_CONFIG.version}</p></div>`;
     $("#privS").addEventListener("click", (e) => { e.preventDefault(); showPrivacy(); });
-    drawBatches();
+    drawBatches(); drawNotify();
     $("#mySig").addEventListener("click", () => signModal(null, () => route(), { self: true }));
     $("#bkFreq").value = (s.backup || {}).freq || "weekly";
     $("#bkSave").addEventListener("click", async () => {
@@ -968,6 +969,45 @@
     btn && (btn.disabled = false);
   }
   async function saveDevice() { const r = await IO.saveToDevice(); if (r !== "cancel") toast(t("savedOk"), "ok"); route(); }
+
+  // ---------- NOTIFICACIONES PUSH
+  const b64u = (s2) => { const p2 = "=".repeat((4 - s2.length % 4) % 4); const r2 = atob((s2 + p2).replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from(r2, (c) => c.charCodeAt(0)); };
+  const pushSupported = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+  async function currentSub() { try { const reg = await navigator.serviceWorker.ready; return await reg.pushManager.getSubscription(); } catch { return null; } }
+  async function drawNotify() {
+    const box = $("#ntf"); if (!box) return;
+    const nt = st().notify || {}; const cats = [["recency", t("nRecency")], ["docs", t("nDocs")], ["sign", t("nSign")], ["backup", t("nBackup")]];
+    const standalone = window.navigator.standalone || matchMedia("(display-mode: standalone)").matches;
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    if (!pushSupported()) { box.innerHTML = `<p class="fine">${isIOS && !standalone ? t("pushIosInstall") : t("pushUnsupported")}</p>`; return; }
+    const sub = await currentSub(); const perm = Notification.permission;
+    box.innerHTML = `<p class="fine">${t("pushInfo")}</p>
+      <div class="row-status"><span class="dot ${sub ? "green" : perm === "denied" ? "red" : "amber"}"></span><b>${sub ? t("pushOn") : perm === "denied" ? t("pushDenied") : t("pushOff")}</b></div>
+      <div class="g4 mt">${cats.map(([k, l]) => `<label class="tg"><input type="checkbox" data-nt="${k}" ${nt[k] !== false ? "checked" : ""}> ${l}</label>`).join("")}</div>
+      <div class="btnrow mt">${sub ? `<button class="btn" id="nTest">${t("pushTest")}</button><button class="btn" id="nRun">${t("pushRun")}</button><button class="btn danger" id="nOff">${t("pushDisable")}</button>`
+        : `<button class="btn primary" id="nOn" ${perm === "denied" ? "disabled" : ""}>🔔 ${t("pushEnable")}</button>`}</div><p class="fine" id="nMsg"></p>`;
+    $$("[data-nt]", box).forEach((c) => c.addEventListener("change", async () => { const n2 = { ...(st().notify || {}) }; n2[c.dataset.nt] = c.checked; await R.saveProfile({ settings: { ...st(), notify: n2 } }); }));
+    const msg = (x) => ($("#nMsg").textContent = x);
+    const on = $("#nOn"); if (on) on.addEventListener("click", async () => {
+      try {
+        const pr = await Notification.requestPermission(); if (pr !== "granted") { drawNotify(); return; }
+        const reg = await navigator.serviceWorker.ready;
+        const s2 = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u(window.RX_CONFIG.vapid) });
+        const j = s2.toJSON();
+        let { error } = await sb.from("push_subscriptions").insert({ user_id: R.user.id, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, ua: navigator.userAgent.slice(0, 200) });
+        if (error && error.code === "23505") { await sb.from("push_subscriptions").delete().eq("endpoint", j.endpoint);
+          ({ error } = await sb.from("push_subscriptions").insert({ user_id: R.user.id, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, ua: navigator.userAgent.slice(0, 200) })); }
+        if (error) throw error;
+        toast(t("pushOn"), "ok"); drawNotify();
+      } catch (e) { msg(e.message); }
+    });
+    const call = async (body) => { const { data, error } = await sb.functions.invoke("notify", { body });
+      if (error) { let m = error.message; try { m = (await error.context.json()).error || m; } catch {} throw new Error(m); } return data; };
+    const te = $("#nTest"); if (te) te.addEventListener("click", async () => { try { const d = await call({ test: true }); msg(d.sent ? t("pushSentTest") : t("pushNoDevice")); } catch (e) { msg(e.message); } });
+    const ru = $("#nRun"); if (ru) ru.addEventListener("click", async () => { try { const d = await call({ run: true, force: true }); msg(d.alerts.length ? d.alerts.join(" · ") : t("pushNothing")); } catch (e) { msg(e.message); } });
+    const off = $("#nOff"); if (off) off.addEventListener("click", async () => { const s2 = await currentSub();
+      if (s2) { await sb.from("push_subscriptions").delete().eq("endpoint", s2.endpoint); await s2.unsubscribe(); } drawNotify(); });
+  }
 
   // ---------- INTEGRIDAD
   const pairKey = (rows) => rows.map((r) => r.id).sort().join("+");

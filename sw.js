@@ -1,5 +1,5 @@
 // RIXARLOG service worker: app disponible sin conexión (los datos van por Supabase)
-const CACHE = "rixarlog-v1.6.0";
+const CACHE = "rixarlog-v1.7.0";
 const SHELL = ["./", "index.html", "css/app.css", "manifest.webmanifest", "airports.json",
   "js/config.js", "js/i18n.js", "js/sun.js", "js/store.js", "js/io.js", "js/integrity.js", "js/map.js", "js/app.js",
   "vendor/supabase.js", "vendor/591.supabase.js", "vendor/chart.umd.js", "vendor/jspdf.umd.min.js",
@@ -20,4 +20,17 @@ self.addEventListener("fetch", (e) => {
   } else if (u.hostname.includes("fonts.g") || u.hostname.endsWith("arcgisonline.com")) {
     e.respondWith(caches.match(e.request).then((r) => r || fetch(e.request).then((n) => { const c = n.clone(); caches.open(CACHE).then((x) => x.put(e.request, c)); return n; })));
   }
+});
+
+// notificaciones push
+self.addEventListener("push", (e) => {
+  let d = {}; try { d = e.data ? e.data.json() : {}; } catch { d = { title: "RIXARLOG", body: e.data && e.data.text() }; }
+  e.waitUntil(self.registration.showNotification(d.title || "RIXARLOG", { body: d.body || "", icon: "icons/icon-192.png", badge: "icons/icon-192.png", tag: d.tag, data: { url: d.url || "./" } }));
+});
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close(); const url = (e.notification.data && e.notification.data.url) || "./";
+  e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((cs) => {
+    for (const c of cs) if ("focus" in c) { c.navigate(url).catch(() => {}); return c.focus(); }
+    return self.clients.openWindow(url);
+  }));
 });

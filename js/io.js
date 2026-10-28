@@ -12,7 +12,8 @@
     "pic_name","ldg_day","ldg_night","to_day","to_night","night_min","ifr_min","pic_min","cop_min","dual_min","instr_min",
     "picus","pf","fstd_type","fstd_min","remarks","id"];
 
-  const markExport = () => { try { localStorage.setItem(`rx:${S().user.id}:lastExport`, new Date().toISOString()); } catch {} };
+  const markExport = () => { const now = new Date().toISOString(); try { localStorage.setItem(`rx:${S().user.id}:lastExport`, now); } catch {}
+    try { S().saveProfile({ last_backup_at: now }); } catch {} };
   function download(name, blob) {
     markExport();
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
