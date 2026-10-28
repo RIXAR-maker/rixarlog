@@ -318,7 +318,8 @@
     let role = old ? (roleFrom(old) || S0.defRole || "pic") : (draft && draft.role) || S0.defRole || "pic";
     let picus = !!r.picus, ifrFull = old ? (old.ifr_min > 0 && old.ifr_min === old.total_min) : S0.defIfr !== false;
     let manual = old ? (R.checks(old).length === 0 && (([old.pic_min, old.cop_min, old.dual_min, old.instr_min].filter(Boolean).length > 1) || (old.ifr_min && old.ifr_min !== old.total_min))) : false;
-    let nightManual = false;
+    let nightManual = false, ldgManual = false;
+    let touched = !old; // en anotaciones existentes no se recalcula nada hasta que cambien fecha, horas o aeropuertos
     const regs = R.aircraft.map((a) => a.registration);
     const names = [...new Set(R.entries.map((x) => x.pic_name).filter(Boolean))];
     const fstdTypes = [...new Set(R.entries.map((x) => x.fstd_type).filter(Boolean))];
@@ -412,7 +413,7 @@
       r.ac_type = v("ac_type").toUpperCase();
       const cls = g("cls").value;
       // tiempo total
-      if (r.off_time && r.on_time) {
+      if (touched && r.off_time && r.on_time) {
         const b = ((R.toMin(r.on_time) - R.toMin(r.off_time)) % 1440 + 1440) % 1440;
         if (document.activeElement !== g("total_min")) setV("total_min", hm(b));
       }
@@ -440,17 +441,17 @@
       const info = $("#nightInfo");
       if (A && B && r.date && r.off_time && r.on_time) {
         const n = RXSun.nightCalc(r.date, hh(r.off_time), hh(r.on_time), [A[1], A[2]], [B[1], B[2]]);
-        if (n && !nightManual) {
-          setV("night_min", hmB(n.night));
-          if (r.pf && document.activeElement !== g("ldg_day") && document.activeElement !== g("ldg_night")) {
+        if (n && touched && !nightManual) setV("night_min", hmB(n.night));
+        if (n && touched) {
+          if (r.pf && !ldgManual) {
             setV("ldg_day", n.ldgNight ? 0 : 1); setV("ldg_night", n.ldgNight ? 1 : 0);
             setV("to_day", n.toNight ? 0 : 1); setV("to_night", n.toNight ? 1 : 0);
           }
           if (!r.pf && fromUser && document.activeElement === g("pf")) { setV("ldg_day", 0); setV("ldg_night", 0); setV("to_day", 0); setV("to_night", 0); }
         }
-        info.textContent = t("nightAuto") + (nightManual ? " (manual)" : "");
+        info.textContent = touched ? t("nightAuto") + (nightManual ? " (manual)" : "") : t("storedValues");
       } else info.textContent = (r.dep && r.arr && (!A || !B)) ? t("unknownApt") : t("utcNote");
-      $("#nAuto").style.display = nightManual ? "none" : "";
+      $("#nAuto").style.display = nightManual || !touched ? "none" : "";
       r.night_min = P("night_min");
       for (const n of ["ldg_day", "ldg_night", "to_day", "to_night"]) r[n] = parseInt(v(n), 10) || 0;
       if (!r.pic_name && role === "pic" && !picus) r.pic_name = "SELF";
@@ -464,7 +465,11 @@
     }
     function bind() {
       $$("input,select,textarea", body).forEach((x) => {
-        x.addEventListener("input", () => { if (x.name === "night_min") nightManual = true; compute(true); });
+        x.addEventListener("input", () => {
+          if (x.name === "night_min") nightManual = true;
+          if (/^(ldg|to)_/.test(x.name)) ldgManual = true;
+          if (["date", "off_time", "on_time", "dep", "arr"].includes(x.name)) touched = true;
+          compute(true); });
         x.addEventListener("change", () => compute(true));
       });
       const man = $("#man"); if (man) man.addEventListener("toggle", () => compute(true));
@@ -473,17 +478,20 @@
         x.addEventListener("blur", () => { const v2 = tm(x.value); if (v2) x.value = v2; compute(true); });
         x.addEventListener("input", () => { if (/^\d{4}$/.test(x.value)) { x.value = x.value.slice(0, 2) + ":" + x.value.slice(2); compute(true); } });
       });
-      $$("[data-now]", body).forEach((b) => b.addEventListener("click", (ev) => { ev.preventDefault(); const d = new Date();
+      $$("[data-now]", body).forEach((b) => b.addEventListener("click", (ev) => { ev.preventDefault(); const d = new Date(); touched = true;
         $(`[name="${b.dataset.now}"]`, el).value = String(d.getUTCHours()).padStart(2, "0") + ":" + String(d.getUTCMinutes()).padStart(2, "0");
         if (!$('[name="date"]', el).value) $('[name="date"]', el).value = d.toISOString().slice(0, 10); compute(true); }));
-      const sw = $("#swap"); if (sw) sw.addEventListener("click", (ev) => { ev.preventDefault(); const a = $('[name="dep"]', el), b2 = $('[name="arr"]', el); [a.value, b2.value] = [b2.value, a.value]; compute(true); });
+      const sw = $("#swap"); if (sw) sw.addEventListener("click", (ev) => { ev.preventDefault(); touched = true; const a = $('[name="dep"]', el), b2 = $('[name="arr"]', el); [a.value, b2.value] = [b2.value, a.value]; compute(true); });
       $$('[name$="_min"]', body).forEach((x) => x.addEventListener("blur", () => { if (x.value.trim()) x.value = hm(IO.parseDur(x.value)); }));
     }
     $$("[data-kind]", el).forEach((b) => b.addEventListener("click", () => { r.kind = b.dataset.kind; $$("[data-kind]", el).forEach((x) => x.classList.toggle("on", x === b)); drawBody(); }));
     $("#cancel").addEventListener("click", () => history.length > 1 ? history.back() : (location.hash = "#logbook"));
     if ($("#del")) $("#del").addEventListener("click", async () => { if (!confirm(t("confirmDel"))) return; await R.remove("entries", id); toast(t("deleted")); location.hash = "#logbook"; });
     $("#f").addEventListener("submit", async (e) => {
-      e.preventDefault(); compute(false);
+      e.preventDefault();
+      const fm = e.currentTarget; if (fm.dataset.saving) return; fm.dataset.saving = "1";
+      $$('#f button[type="submit"]', el).forEach((b) => (b.disabled = true));
+      compute(false);
       const next = e.submitter && e.submitter.dataset.next;
       const row = {};
       for (const k of R.ENTRY_COLS) if (k in r && !["created_at", "updated_at"].includes(k)) row[k] = r[k];
@@ -497,7 +505,7 @@
         if (row.registration && !R.aircraft.find((a) => a.registration === row.registration) && row.ac_type)
           await R.save("aircraft", { registration: row.registration, ac_type: row.ac_type, class: cls });
       }
-      if (!row.date) return;
+      if (!row.date) { delete fm.dataset.saving; $$('#f button[type="submit"]', el).forEach((b) => (b.disabled = false)); return; }
       await R.save("entries", row);
       toast(t("savedOk"), "ok");
       if (next && r.kind === "FLT") {
@@ -563,7 +571,7 @@
     el.innerHTML = `
       <div class="panel"><div class="fhead"><h3>${t("selection")}</h3><div><button class="btn" id="cp">${t("copy")}</button> <button class="btn primary" id="sp">${t("printPdf")}</button></div></div>
         ${selTable()}</div>
-      <section class="tiles">${tile(t("airports"), apts.length, countries.size + " países", "cyan")}${tile(t("topRoutes"), routes.length ? routes[0][0] : "—")}
+      <section class="tiles">${tile(t("airports"), apts.length, countries.size + " " + t("countries"), "cyan")}${tile(t("topRoutes"), routes.length ? h(routes[0][0]) : "—")}
         ${tile(t("regs"), new Set(fl.map((r) => r.registration)).size)}${tile(t("type"), new Set(fl.map((r) => r.ac_type)).size)}</section>
       <section class="grid2">
         <div class="panel"><h3>${t("airports")}</h3>${list(apts.slice(0, 15).map(([a, n]) => [`${a} · ${(apt(a) || [""])[0]}`, n, null]), t("visits"))}</div>

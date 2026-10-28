@@ -24,7 +24,7 @@ const FIELDS = ["date","kind","dep","off_time","arr","on_time","ac_type","regist
   "pic_name","ldg_day","ldg_night","to_day","to_night","night_min","ifr_min","pic_min","cop_min","dual_min","instr_min",
   "picus","pf","fstd_type","fstd_min","remarks","id"];
 const DUR = ["se_min","me_min","mp_min","total_min","night_min","ifr_min","pic_min","cop_min","dual_min","instr_min","fstd_min"];
-const esc = (v: unknown) => { const s = v == null ? "" : String(v); return /[",;\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+const esc = (v: unknown) => { let s = v == null ? "" : String(v); if (/^[=+@\t\r]/.test(s)) s = "'" + s; return /[",;\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
 const b64 = (u8: Uint8Array) => { let s = ""; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode(...u8.subarray(i, i + 0x8000)); return btoa(s); };
 const b64s = (str: string) => b64(new TextEncoder().encode(str));
 
@@ -115,10 +115,10 @@ async function backupUser(uid: string, email: string, profile: any) {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
-  if (!RESEND) return json({ error: "RESEND_API_KEY no configurada" }, 500);
   try {
     const cron = req.headers.get("x-cron-secret");
     if (cron && cron === (await cronSecret())) {
+      if (!RESEND) return json({ error: "RESEND_API_KEY no configurada" }, 500);
       const { data: profs, error } = await db.from("profiles").select("*");
       if (error) throw error;
       const now = new Date(); const out: unknown[] = [];
@@ -135,6 +135,7 @@ Deno.serve(async (req) => {
     const jwt = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
     const { data: ud, error: ue } = await db.auth.getUser(jwt);
     if (ue || !ud?.user) return json({ error: "No autorizado" }, 401);
+    if (!RESEND) return json({ error: "RESEND_API_KEY no configurada" }, 500);
     const { data: p } = await db.from("profiles").select("*").eq("id", ud.user.id).single();
     const to = ((p?.settings || {}).backup || {}).email || ud.user.email;
     return json({ ok: true, sent: [await backupUser(ud.user.id, to, p || {})] });

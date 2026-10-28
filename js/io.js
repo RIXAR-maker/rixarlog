@@ -23,7 +23,7 @@
   const fileBase = () => "RIXARLOG_" + (pname().replace(/[^\w]+/g, "_") || "logbook") + "_" + stamp();
 
   // ---------- CSV
-  const esc = (v) => { v = v == null ? "" : String(v); return /[",;\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const esc = (v) => { v = v == null ? "" : String(v); if (/^[=+@\t\r]/.test(v)) v = "'" + v; return /[",;\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
   function rowOut(r) {
     return FIELDS.map((f) => DUR.includes(f) ? hmBlank(r[f]) : (f === "off_time" || f === "on_time") ? hhmm(r[f]) :
       (f === "picus" || f === "pf") ? (r[f] ? "1" : "") : r[f] ?? "");
@@ -274,7 +274,7 @@
         else if (INT.includes(field)) r[field] = parseInt(v, 10) || 0;
         else if (field === "picus" || field === "pf") r[field] = truthy(v);
         else if (field === "kind") r.kind = /fstd|sim|ffs|fnpt/i.test(v) ? "FSTD" : "FLT";
-        else r[field] = v.trim() || null;
+        else r[field] = v.trim().replace(/^'(?=[=+@])/, "") || null;
       }
       return r;
     }).filter((r) => r.date).map(normalize);

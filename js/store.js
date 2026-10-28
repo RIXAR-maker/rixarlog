@@ -94,7 +94,7 @@
   };
 
   // ---- cola offline
-  S.outbox = () => lsGet("outbox", []);
+  S.outbox = () => { const o = lsGet("outbox", []); let ch = false; for (const x of o) if (!x.oid) { x.oid = Math.random().toString(36).slice(2) + Date.now(); ch = true; } if (ch) lsSet("outbox", o); return o; };
   const setOutbox = (o) => lsSet("outbox", o);
   function applyOutboxLocally() {
     for (const op of S.outbox()) {
@@ -105,18 +105,26 @@
     }
   }
   let flushing = null;
-  S.flush = () => { if (!flushing) flushing = doFlush().finally(() => { flushing = null; }); return flushing; };
+  S.flush = () => {
+    if (!flushing) flushing = doFlush().finally(() => { flushing = null; if (navigator.onLine && S.outbox().length && S.status !== "pending") setTimeout(S.flush, 50); });
+    return flushing;
+  };
   const doFlush = async () => {
     if (!navigator.onLine) { S.setStatus("offline"); return; }
-    let o = S.outbox(); if (!o.length) return;
+    if (!S.outbox().length) return;
     S.setStatus("syncing");
-    while (o.length) {
-      const op = o[0];
+    // se relee la cola en cada vuelta: las anotaciones añadidas mientras sincroniza no se pierden
+    for (let op = S.outbox()[0]; op; op = S.outbox()[0]) {
       const { error } = op.op === "delete"
         ? await sb.from(op.table).delete().eq("id", op.row.id)
         : await sb.from(op.table).upsert(op.row);
-      if (error) { console.error(error); S.setStatus("pending"); alert("Sync: " + error.message); return; }
-      o.shift(); setOutbox(o);
+      const drop = () => setOutbox(S.outbox().filter((x) => x.oid !== op.oid));
+      if (error) {
+        console.error(error);
+        if (error.code && !/^(08|57|PGRST3)/.test(String(error.code))) { drop(); alert("Sync: " + error.message); await S.refresh(); continue; }
+        S.setStatus("pending"); return;
+      }
+      drop();
     }
     S.setStatus("synced");
   };
@@ -138,15 +146,15 @@
     if (i >= 0) list[i] = local; else list.push(local);
     if (table === "entries") S.sortEntries();
     cache(); emit();
-    const o = S.outbox(); o.push({ op: "upsert", table, row }); setOutbox(o);
-    await S.flush();
+    const o = S.outbox(); o.push({ op: "upsert", table, row, oid: uuid() }); setOutbox(o);
+    S.flush(); // en segundo plano: la interfaz no espera a la red
     return local;
   };
   S.remove = async (table, id) => {
     const list = S[table]; const i = list.findIndex((x) => x.id === id); if (i >= 0) list.splice(i, 1);
     cache(); emit();
-    const o = S.outbox(); o.push({ op: "delete", table, row: { id } }); setOutbox(o);
-    await S.flush();
+    const o = S.outbox(); o.push({ op: "delete", table, row: { id }, oid: uuid() }); setOutbox(o);
+    S.flush();
   };
   S.bulkInsert = async (rows, onProgress, meta = {}) => {
     if (!navigator.onLine) throw new Error("Offline");
@@ -174,10 +182,15 @@
   S.removeMany = async (ids) => {
     for (let i = 0; i < ids.length; i += 200) { const { error } = await sb.from("entries").delete().in("id", ids.slice(i, i + 200)); if (error) throw error; }
   };
-  S.saveProfile = async (patch) => {
+  let profileChain = Promise.resolve();
+  S.saveProfile = (patch) => {
     S.profile = { ...S.profile, ...patch }; cache(); emit();
-    const { error } = await sb.from("profiles").update(patch).eq("id", S.user.id);
-    if (error) alert(error.message);
+    // en serie: el servidor recibe los cambios en el mismo orden en que se hicieron
+    profileChain = profileChain.then(async () => {
+      const { error } = await sb.from("profiles").update(patch).eq("id", S.user.id);
+      if (error) alert(error.message);
+    });
+    return profileChain;
   };
   S.audit = async (before) => {
     let q = sb.from("audit_log").select("*").order("changed_at", { ascending: false }).limit(100);

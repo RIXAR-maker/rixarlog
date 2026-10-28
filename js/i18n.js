@@ -1,7 +1,7 @@
 window.RX_I18N = {
   es: {
     tagline: "Libro de vuelo electrónico · AMC1 FCL.050",
-    year: "Año", backups: "Copias de seguridad", lastBackup: "Última copia", backupNever: "Aún no tienes ninguna copia de seguridad fuera del servidor",
+    year: "Año", countries: "países", storedValues: "Valores guardados. Cambia fecha, horas o aeropuertos para recalcular noche y aterrizajes.", backups: "Copias de seguridad", lastBackup: "Última copia", backupNever: "Aún no tienes ninguna copia de seguridad fuera del servidor",
     backupOld: "Tu última copia de seguridad es de hace {n} días", backupHint: "Guarda una copia (Excel + JSON) en iCloud Drive o Archivos, o activa el envío automático por email.",
     backupDevice: "Guardar copia en el dispositivo", backupSettings: "Configurar email", backupEmail: "Enviarme copia por email", backupFreq: "Frecuencia",
     weekly: "Semanal (lunes)", monthly: "Mensual (primer lunes)", backupTo: "Enviar a", backupNow: "Enviar copia ahora",
@@ -73,7 +73,7 @@ window.RX_I18N = {
   },
   en: {
     tagline: "Electronic pilot logbook · AMC1 FCL.050",
-    year: "Year", backups: "Backups", lastBackup: "Last backup", backupNever: "You have no backup outside the server yet",
+    year: "Year", countries: "countries", storedValues: "Stored values. Change date, times or airports to recompute night and landings.", backups: "Backups", lastBackup: "Last backup", backupNever: "You have no backup outside the server yet",
     backupOld: "Your last backup is {n} days old", backupHint: "Save a copy (Excel + JSON) to iCloud Drive or Files, or enable automatic email backups.",
     backupDevice: "Save copy to device", backupSettings: "Set up email", backupEmail: "Email me a backup", backupFreq: "Frequency",
     weekly: "Weekly (Monday)", monthly: "Monthly (first Monday)", backupTo: "Send to", backupNow: "Send backup now",
