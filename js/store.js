@@ -210,7 +210,7 @@
       if (b !== t) e.push("e_block");
     }
     if (!r.pic_name) e.push("e_pic");
-    if ((r.ldg_day || 0) + (r.ldg_night || 0) === 0) e.push("e_ldg");
+    if (r.pf !== false && (r.ldg_day || 0) + (r.ldg_night || 0) === 0) e.push("e_ldg");
     if (!r.dep || !r.arr || !r.ac_type || !r.registration) e.push("e_data");
     return e;
   };

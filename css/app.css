@@ -241,4 +241,22 @@ input[type="date"]::-webkit-calendar-picker-indicator{opacity:.6}
   .modal{max-height:calc(100vh - 32px - env(safe-area-inset-top));padding-bottom:calc(1.2rem + env(safe-area-inset-bottom))}
   .overlay{padding:0;align-items:flex-end} .modal{border-radius:16px 16px 0 0;max-width:none}
 }
+/* v1.2 */
+.mhead{display:flex;justify-content:space-between;gap:1rem;padding:.9rem .2rem .4rem;color:var(--cyan);font-size:.75rem;text-transform:uppercase;letter-spacing:.06em}
+.mhead span:last-child{color:var(--muted);text-transform:none;letter-spacing:0;font-family:var(--mono)} .mhead b{color:var(--text)}
+tr.mhead td{background:var(--panel2);padding:.45rem .5rem} tr.mhead td span{display:inline-block} tr.mhead td span:first-child{color:var(--cyan);margin-right:1rem;font-weight:700}
+tr.mhead{cursor:default}
+.cards .mhead:first-child{padding-top:.2rem}
+.mini{font:inherit;font-size:.66rem;text-transform:uppercase;letter-spacing:.04em;padding:.1rem .45rem;margin-left:.3rem;border-radius:5px;border:1px solid var(--line);background:transparent;color:var(--cyan);cursor:pointer;vertical-align:middle}
+label:has(.mini){flex-direction:column}
+.install{display:flex;align-items:flex-start;gap:.8rem;border-color:var(--amber)} .install>div{flex:1} .install p{margin:.3rem 0 0}
+.legal p{font-size:.85rem;line-height:1.5;margin:.0 0 .7rem;color:var(--text)} .legal b{color:var(--cyan)}
+table.tt th:first-child{position:sticky;left:0;background:var(--panel);z-index:1}
+table.tt.sel td{color:var(--text)} table.tt.sel tr:first-child th{position:static}
+.card:active,table.log tr[data-id]:active td{background:var(--panel2)}
+@media (max-width: 860px){
+  .toast{bottom:calc(96px + env(safe-area-inset-bottom))}
+  body.v-entry .toast{bottom:calc(90px + env(safe-area-inset-bottom))}
+  .form .factions{flex-wrap:wrap} .form .factions .btn{flex:1 1 30%} .form .factions #del{flex:0 0 auto}
+}
 @media print{nav,header{display:none!important} body:not(.auth) #app{display:block}}

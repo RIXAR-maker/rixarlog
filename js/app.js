@@ -44,6 +44,13 @@
     return close;
   }
 
+  function showPrivacy() {
+    const c = window.RX_CONFIG.contact;
+    modal(`<h3>${t("privacy")}</h3><div class="legal">${t("privacyBody").replace("{contact}", c ? `<a href="mailto:${h(c)}">${h(c)}</a>` : t("privacyNoContact"))}</div>
+      <div class="factions"><span class="grow"></span><button class="btn primary" data-close>OK</button></div>`);
+  }
+  window.RXApp.showPrivacy = showPrivacy;
+
   // ---------- auth
   const root = $("#app");
   let mode = "login";
@@ -64,12 +71,13 @@
             ${mode === "login" ? `<a href="#" data-m="reset">${t("forgot")}</a><a href="#" data-m="signup">${t("noAccount")}</a>` : `<a href="#" data-m="login">${t("haveAccount")}</a>`}
           </div>`}
           <p class="msg ${isErr ? "err" : ""}">${h(msg)}</p>
-          <p class="fine">${t("privacyNote")}</p>
+          <p class="fine">${t("privacyNote")} <a href="#" id="privL">${t("privacy")}</a></p>
           <div class="seg small">${["es", "en"].map((l) => `<button data-l="${l}" class="${l === lang ? "on" : ""}">${l.toUpperCase()}</button>`).join("")}</div>
         </div>
       </div>`;
     $$("[data-m]").forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); mode = a.dataset.m; renderAuth(); }));
     $$("[data-l]").forEach((b) => b.addEventListener("click", () => { setLang(b.dataset.l); renderAuth(); }));
+    $("#privL").addEventListener("click", (e) => { e.preventDefault(); showPrivacy(); });
     const redirect = location.origin + location.pathname;
     $("#go").addEventListener("click", async () => {
       const em = $("#em") && $("#em").value.trim(), pw = $("#pw") && $("#pw").value;
@@ -129,9 +137,9 @@
     const el = $("#sync"); if (!el) return;
     const n = R.outbox().length;
     const s = !navigator.onLine ? "offline" : R.status;
-    const txt = s === "offline" ? t("offline") : s === "syncing" ? t("syncing") : n ? `${n} ${t("pending")}` : t("synced");
+    const txt = s === "offline" ? (innerWidth < 860 ? t("offlineShort") : t("offline")) : s === "syncing" ? t("syncing") : n ? `${n} ${t("pending")}` : t("synced");
     el.className = "sync " + (s === "offline" || n ? "amber" : s === "syncing" ? "cyan" : "green");
-    el.innerHTML = `<i></i><span>${h(txt)}</span>`;
+    el.innerHTML = `<i></i><span>${h(txt)}</span>`; el.title = s === "offline" ? t("offline") : "";
   }
   document.addEventListener("rx-status", syncBadge);
 
@@ -183,7 +191,11 @@
     const tg = targets();
     const prog = [["total", t("totalFlight"), all.total_min], ["mp", "Multi-pilot", all.mp_min], ["pic", "PIC", all.pic_min], ["night", t("night"), all.night_min], ["ifr", "IFR", all.ifr_min]];
     const docs = R.documents.filter((d) => d.expires).map((d) => [d, statusOf(d.expires)]).sort((a, b) => a[1][1] - b[1][1]).slice(0, 6);
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const standalone = window.navigator.standalone || matchMedia("(display-mode: standalone)").matches;
+    let dismissed = false; try { dismissed = localStorage.getItem("rx:installDismissed") === "1"; } catch {}
     el.innerHTML = `
+      ${isIOS && !standalone && !dismissed ? `<div class="panel install"><div><b>${t("installTitle")}</b><p class="fine">${t("installHint")}</p></div><button class="btn small" id="instX">✕</button></div>` : ""}
       ${!R.entries.length ? `<div class="panel hero"><h2>${t("welcome")}</h2><p>${t("onboarding")}</p><p class="fine">${t("installHint")}</p>
         <a class="btn primary" href="#settings">${t("settings")}</a> <a class="btn" href="#entry/new">${t("newEntry")}</a></div>` : ""}
       <section class="tiles">
@@ -213,6 +225,7 @@
         </div>
         <div class="panel"><h3>${t("byType")}</h3><div class="chart"><canvas id="cType"></canvas></div></div>
       </section>`;
+    const ix = $("#instX"); if (ix) ix.addEventListener("click", () => { try { localStorage.setItem("rx:installDismissed", "1"); } catch {} ix.parentElement.remove(); });
     // gráficos
     if (!window.Chart) return;
     const months = []; const d0 = new Date(); d0.setUTCDate(1);
@@ -247,13 +260,17 @@
       const q = logFilter.q.toLowerCase();
       let rows = R.entries.filter((r) => (logFilter.kind === "all" || r.kind === logFilter.kind) && (!logFilter.year || r.date.startsWith(logFilter.year)) &&
         (!q || [dmy(r.date), r.dep, r.arr, r.ac_type, r.registration, r.pic_name, r.remarks, r.fstd_type].join(" ").toLowerCase().includes(q)));
-      const n = rows.length; rows = rows.slice().reverse().slice(0, logFilter.limit);
+      const n = rows.length; const allRows = rows; rows = rows.slice().reverse().slice(0, logFilter.limit);
+      const mtot = new Map(); for (const r of allRows) { const k = r.date.slice(0, 7); const o = mtot.get(k) || { f: 0, s: 0, n: 0 }; o.f += r.total_min || 0; o.s += r.fstd_min || 0; o.n++; mtot.set(k, o); }
+      const mlabel = (k) => new Date(k + "-01T00:00:00Z").toLocaleDateString(lang, { month: "long", year: "numeric", timeZone: "UTC" });
+      const msum = (k) => { const o = mtot.get(k); return `<b>${hm(o.f)}</b>${o.s ? ` · FSTD ${hm(o.s)}` : ""} · ${o.n}`; };
+      const withHeads = (fn, headFn) => { let last = ""; return rows.map((r) => { const k = r.date.slice(0, 7); const hd = k !== last ? headFn(k) : ""; last = k; return hd + fn(r); }).join(""); };
       $("#list").innerHTML = !R.entries.length ? `<div class="panel muted">${t("noEntries")}</div>` : `
         <table class="log">
           <thead><tr><th>${t("date")}</th><th>${t("dep")}</th><th>${t("arr")}</th><th>${t("type")}</th><th>${t("reg")}</th><th>${t("total")}</th>
             <th>${t("role")}</th><th>${t("picName")}</th><th>${t("night")}</th><th>IFR</th><th>Ldg</th><th>${t("remarks")}</th><th></th></tr></thead>
-          <tbody>${rows.map(rowHtml).join("")}</tbody></table>
-        <div class="cards">${rows.map(cardHtml).join("")}</div>
+          <tbody>${withHeads(rowHtml, (k) => `<tr class="mhead"><td colspan="13"><span>${h(mlabel(k))}</span><span>${msum(k)}</span></td></tr>`)}</tbody></table>
+        <div class="cards">${withHeads(cardHtml, (k) => `<div class="mhead"><span>${h(mlabel(k))}</span><span>${msum(k)}</span></div>`)}</div>
         ${n > rows.length ? `<button class="btn wide" id="more">${t("loadMore")} (${rows.length}/${n})</button>` : `<p class="fine center">${n} ${t("entries")}</p>`}`;
       $$("[data-id]", el).forEach((x) => x.addEventListener("click", () => (location.hash = "#entry/" + x.dataset.id)));
       const m = $("#more"); if (m) m.addEventListener("click", () => { logFilter.limit += 300; draw(); });
@@ -288,8 +305,10 @@
     if (!isNew && !old) { el.innerHTML = `<div class="panel">404</div>`; return; }
     const S0 = st();
     const lastF = [...R.entries].reverse().find((x) => x.kind === "FLT");
-    const r = old ? { ...old } : { kind: "FLT", date: todayISO(), dep: lastF ? lastF.arr : (R.profile && R.profile.home_base) || "", ldg_day: 0, ldg_night: 0, pf: S0.defPf !== false };
-    let role = old ? (old.instr_min ? "instr" : old.pic_min ? "pic" : old.cop_min ? "cop" : old.dual_min ? "dual" : S0.defRole || "pic") : (S0.defRole || "pic");
+    let draft = null; if (isNew) { try { draft = JSON.parse(sessionStorage.getItem("rx:draft") || "null"); sessionStorage.removeItem("rx:draft"); } catch {} }
+    const r = old ? { ...old } : { kind: "FLT", date: todayISO(), dep: lastF ? lastF.arr : (R.profile && R.profile.home_base) || "", ldg_day: 0, ldg_night: 0, pf: S0.defPf !== false, ...(draft || {}) };
+    const roleFrom = (x) => x.instr_min ? "instr" : x.picus ? "pic" : x.pic_min ? "pic" : x.cop_min ? "cop" : x.dual_min ? "dual" : null;
+    let role = old ? (roleFrom(old) || S0.defRole || "pic") : (draft && draft.role) || S0.defRole || "pic";
     let picus = !!r.picus, ifrFull = old ? (old.ifr_min > 0 && old.ifr_min === old.total_min) : S0.defIfr !== false;
     let manual = old ? (R.checks(old).length === 0 && (([old.pic_min, old.cop_min, old.dual_min, old.instr_min].filter(Boolean).length > 1) || (old.ifr_min && old.ifr_min !== old.total_min))) : false;
     let nightManual = false;
@@ -306,6 +325,7 @@
           ${!isNew ? `<button type="button" class="btn danger" id="del">${t("del")}</button>` : ""}
           <span class="grow"></span>
           <button type="button" class="btn" id="cancel">${t("cancel")}</button>
+          ${isNew ? `<button type="submit" class="btn" data-next="return" id="saveRet" title="${t("saveReturn")}">${t("saveReturn")}</button>` : `<button type="submit" class="btn" data-next="dup">${t("duplicate")}</button>`}
           <button type="submit" class="btn primary">${t("save")}</button>
         </div>
       </form>
@@ -320,7 +340,7 @@
       if (r.kind === "FSTD") {
         body.innerHTML = `<div class="g3">
           <label>${t("date")}<input type="date" name="date" value="${r.date}" required></label>
-          <label>${t("fstdType")}<input name="fstd_type" list="dl-fstd" value="${h(r.fstd_type || "")}" placeholder="FFS A320 · ES-IA-040"></label>
+          <label>${t("fstdType")}<input name="fstd_type" list="dl-fstd" value="${h(r.fstd_type || "")}" placeholder="FFS A320 · ES-1A-040"></label>
           ${durIn("fstd_min", t("fstdTime"), r.fstd_min)}</div>
           <label>${t("remarks")}<textarea name="remarks" rows="3">${h(r.remarks || "")}</textarea></label>
           <p class="fine">${t("notFlightTime")}</p>`;
@@ -334,10 +354,10 @@
           </div>
           <p class="hint" id="newAc" hidden>${t("newAircraft")}</p>
           <div class="g4">
-            <label>${t("dep")}<input name="dep" value="${h(r.dep || "")}" maxlength="4" style="text-transform:uppercase" placeholder="ICAO"><small class="apt" id="depN"></small></label>
-            <label>${t("off")}<input name="off_time" class="tm" inputmode="numeric" maxlength="5" placeholder="hh:mm" value="${hh(r.off_time)}"></label>
+            <label>${t("dep")} <button type="button" class="mini" id="swap" title="${t("swap")}">⇄</button><input name="dep" value="${h(r.dep || "")}" maxlength="4" style="text-transform:uppercase" placeholder="ICAO"><small class="apt" id="depN"></small></label>
+            <label>${t("off")} <button type="button" class="mini" data-now="off_time">${t("now")}</button><input name="off_time" class="tm" inputmode="numeric" maxlength="5" placeholder="hh:mm" value="${hh(r.off_time)}"></label>
             <label>${t("arr")}<input name="arr" value="${h(r.arr || "")}" maxlength="4" style="text-transform:uppercase" placeholder="ICAO"><small class="apt" id="arrN"></small></label>
-            <label>${t("on")}<input name="on_time" class="tm" inputmode="numeric" maxlength="5" placeholder="hh:mm" value="${hh(r.on_time)}"></label>
+            <label>${t("on")} <button type="button" class="mini" data-now="on_time">${t("now")}</button><input name="on_time" class="tm" inputmode="numeric" maxlength="5" placeholder="hh:mm" value="${hh(r.on_time)}"></label>
           </div>
           <div class="g4">
             ${durIn("total_min", t("total") + ` <small class="auto">${t("auto")}</small>`, r.total_min)}
@@ -440,7 +460,14 @@
       });
       const man = $("#man"); if (man) man.addEventListener("toggle", () => compute(true));
       $$('[name="dep"],[name="arr"]', body).forEach((x) => x.addEventListener("blur", () => { x.value = icao(x.value); compute(true); }));
-      $$(".tm", body).forEach((x) => x.addEventListener("blur", () => { const v2 = tm(x.value); if (v2) x.value = v2; compute(true); }));
+      $$(".tm", body).forEach((x) => {
+        x.addEventListener("blur", () => { const v2 = tm(x.value); if (v2) x.value = v2; compute(true); });
+        x.addEventListener("input", () => { if (/^\d{4}$/.test(x.value)) { x.value = x.value.slice(0, 2) + ":" + x.value.slice(2); compute(true); } });
+      });
+      $$("[data-now]", body).forEach((b) => b.addEventListener("click", (ev) => { ev.preventDefault(); const d = new Date();
+        $(`[name="${b.dataset.now}"]`, el).value = String(d.getUTCHours()).padStart(2, "0") + ":" + String(d.getUTCMinutes()).padStart(2, "0");
+        if (!$('[name="date"]', el).value) $('[name="date"]', el).value = d.toISOString().slice(0, 10); compute(true); }));
+      const sw = $("#swap"); if (sw) sw.addEventListener("click", (ev) => { ev.preventDefault(); const a = $('[name="dep"]', el), b2 = $('[name="arr"]', el); [a.value, b2.value] = [b2.value, a.value]; compute(true); });
       $$('[name$="_min"]', body).forEach((x) => x.addEventListener("blur", () => { if (x.value.trim()) x.value = hm(IO.parseDur(x.value)); }));
     }
     $$("[data-kind]", el).forEach((b) => b.addEventListener("click", () => { r.kind = b.dataset.kind; $$("[data-kind]", el).forEach((x) => x.classList.toggle("on", x === b)); drawBody(); }));
@@ -448,6 +475,7 @@
     if ($("#del")) $("#del").addEventListener("click", async () => { if (!confirm(t("confirmDel"))) return; await R.remove("entries", id); toast(t("deleted")); location.hash = "#logbook"; });
     $("#f").addEventListener("submit", async (e) => {
       e.preventDefault(); compute(false);
+      const next = e.submitter && e.submitter.dataset.next;
       const row = {};
       for (const k of R.ENTRY_COLS) if (k in r && !["created_at", "updated_at"].includes(k)) row[k] = r[k];
       if (r.kind === "FSTD") {
@@ -463,6 +491,16 @@
       if (!row.date) return;
       await R.save("entries", row);
       toast(t("savedOk"), "ok");
+      if (next && r.kind === "FLT") {
+        const d = { kind: "FLT", date: row.date, registration: row.registration, ac_type: row.ac_type, pic_name: row.pic_name, picus: row.picus, pf: next === "return" ? !row.pf : row.pf, role };
+        if (next === "return") Object.assign(d, { dep: row.arr, arr: row.dep });
+        else Object.assign(d, { dep: row.dep, arr: row.arr, remarks: row.remarks });
+        try { sessionStorage.setItem("rx:draft", JSON.stringify(d)); } catch {}
+        if (location.hash === "#entry/new") route(); else location.hash = "#entry/new";
+        return;
+      }
+      if (next && r.kind === "FSTD") { try { sessionStorage.setItem("rx:draft", JSON.stringify({ kind: "FSTD", date: row.date, fstd_type: row.fstd_type, fstd_min: row.fstd_min })); } catch {}
+        if (location.hash === "#entry/new") route(); else location.hash = "#entry/new"; return; }
       location.hash = "#logbook";
     });
     drawBody();
@@ -490,6 +528,18 @@
   };
 
   // ---------- INFORMES
+  function selTable() {
+    const d = IO.selectionData();
+    const L = [[t("totalFlight"), "total_min"], ["Multi-pilot", "mp_min"], ["PIC", "pic_min"], ["PICUS", "picus_min"], [t("cop"), "cop_min"], [t("dual"), "dual_min"],
+      ["SP SE", "se_min"], ["SP ME", "me_min"], [t("night"), "night_min"], ["IFR", "ifr_min"], ["FSTD", "fstd_min"]];
+    return `<div class="tscroll"><table class="tt sel"><tr><th></th><th>Total</th><th>${t("last12")}</th><th>${t("last90")}</th></tr>
+      ${L.map(([l, f]) => `<tr><th>${h(l)}</th><td>${hm(d.all[f])}</td><td>${hm(d.l12[f])}</td><td>${hm(d.l90[f])}</td></tr>`).join("")}
+      <tr><th>${t("ldgDay")} / ${t("ldgNight")}</th><td>${d.all.ldg_day} / ${d.all.ldg_night}</td><td>${d.l12.ldg_day} / ${d.l12.ldg_night}</td><td>${d.l90.ldg_day} / ${d.l90.ldg_night}</td></tr></table></div>
+      <h4>${t("byType")}</h4><div class="tscroll"><table class="tt sel"><tr><th>${t("type")}</th><th>Total</th><th>PIC</th><th>PICUS</th><th>${t("cop")}</th><th>MP</th><th>Ldg</th></tr>
+      ${d.byType.map((r) => `<tr>${r.map((c, i) => i ? `<td>${h(c)}</td>` : `<th>${h(c)}</th>`).join("")}</tr>`).join("")}
+      ${d.fstdByType.map((r) => `<tr><th>FSTD ${h(r[0])}</th><td>${r[1]}</td><td colspan="5"></td></tr>`).join("")}</table></div>
+      <p class="fine">${t("lastFlight")}: ${d.last ? `${dmy(d.last.date)} · ${h(d.last.ac_type)} · ${h(d.last.registration)}` : "—"}</p>`;
+  }
   VIEWS.reports = (el) => {
     const fl = R.entries.filter((r) => r.kind === "FLT");
     const cnt = (keyf) => [...R.groupBy(fl, keyf)].map(([k, rows]) => [k, rows.length, R.sum(rows, "total_min")]).sort((a, b) => b[1] - a[1]);
@@ -503,7 +553,7 @@
     const list = (rows, unit) => `<table class="tt mini">${rows.map(([k, n, m]) => `<tr><th>${h(k)}</th><td>${n} ${unit}</td>${m != null ? `<td>${hm(m)}</td>` : ""}</tr>`).join("")}</table>`;
     el.innerHTML = `
       <div class="panel"><div class="fhead"><h3>${t("selection")}</h3><div><button class="btn" id="cp">${t("copy")}</button> <button class="btn primary" id="sp">${t("printPdf")}</button></div></div>
-        <pre class="report">${h(IO.selectionText())}</pre></div>
+        ${selTable()}</div>
       <section class="tiles">${tile(t("airports"), apts.length, countries.size + " países", "cyan")}${tile(t("topRoutes"), routes.length ? routes[0][0] : "—")}
         ${tile(t("regs"), new Set(fl.map((r) => r.registration)).size)}${tile(t("type"), new Set(fl.map((r) => r.ac_type)).size)}</section>
       <section class="grid2">
@@ -632,7 +682,8 @@
         <p class="fine"><span class="chip amber">beta</span> ${t("importDev")}</p><div id="imp"></div></div>
       <div class="panel"><h3>${t("account")}</h3><p class="fine">${h(R.user.email)} · ${t("privacyNote")}</p>
         <div class="btnrow"><button class="btn" id="lo2">${t("logout")}</button><button class="btn danger" id="delAcc">${t("deleteAccount")}</button></div>
-        <p class="fine">RIXARLOG v${window.RX_CONFIG.version}</p></div>`;
+        <p class="fine"><a href="#" id="privS">${t("privacy")}</a> · RIXARLOG v${window.RX_CONFIG.version}</p></div>`;
+    $("#privS").addEventListener("click", (e) => { e.preventDefault(); showPrivacy(); });
     $("#lg").value = p.lang || lang;
     $$("[data-th]", el).forEach((b) => b.addEventListener("click", async () => { setTheme(b.dataset.th); $$("[data-th]", el).forEach((x) => x.classList.toggle("on", x === b)); await R.saveProfile({ theme: b.dataset.th }); }));
     $("#lg").addEventListener("change", async (e) => { setLang(e.target.value); await R.saveProfile({ lang: e.target.value }); shell(); route(); });
