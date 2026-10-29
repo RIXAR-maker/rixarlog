@@ -393,7 +393,8 @@ table.log tr.flash td{background:color-mix(in srgb,var(--accent) 14%,var(--panel
 .fchip small{display:block;color:var(--muted)} .fchip .btnrow{margin:0}
 table.log th{white-space:nowrap}
 
-/* menú lateral fijo y plegable (PC/iPad) */
+/* menú lateral fijo y plegable (PC/iPad) — solo pantallas anchas; en móvil manda la barra inferior */
+@media (min-width: 861px){
 body:not(.auth) #app{transition:grid-template-columns .2s ease}
 nav.side{top:56px;height:calc(100vh - 56px);height:calc(100dvh - 56px);overflow-y:auto;overscroll-behavior:contain;align-self:start;z-index:15}
 nav.side a{position:relative;white-space:nowrap}
@@ -408,3 +409,4 @@ body.nav-mini nav.side .ngrp{font-size:0;height:1px;margin:.55rem .4rem;backgrou
 body.nav-mini nav.side .navtog{justify-content:center;padding:.65rem 0}
 body.nav-mini nav.side .navtog svg{transform:rotate(180deg)}
 body.nav-mini nav.side a .nbadge{position:absolute;top:4px;right:8px;margin:0;min-width:16px;height:16px;font-size:.6rem;line-height:16px;padding:0 4px}
+}

@@ -12,6 +12,12 @@ for (const dev of [devices["iPhone 13"], { viewport: { width: 1280, height: 800 
   const overflow = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth);
   ok("no horizontal overflow", overflow <= 0, overflow);
   ok("no JS errors on load", errs.length === 0, errs.join(" | "));
+  // maqueta de la app (sin login) con el menú plegado: en móvil no puede quedar columna lateral
+  const lay = await p.evaluate(() => { document.body.className = "nav-mini v-more";
+    document.getElementById("app").innerHTML = '<header class="top"><b>RIXARLOG</b></header><nav class="side"><a>x</a></nav><main id="view"><div class="panel">x</div></main><nav class="tabs"></nav>';
+    const hd = document.querySelector("header.top").getBoundingClientRect(), vw = document.getElementById("view").getBoundingClientRect();
+    return { hw: Math.round(hd.width), vl: Math.round(vw.left), side: getComputedStyle(document.querySelector("nav.side")).display, w: innerWidth }; });
+  ok(`layout with collapsed menu (${dev.viewport.width}px)`, lay.hw === lay.w && (lay.w <= 860 ? lay.side === "none" && lay.vl === 0 : lay.vl === 68), JSON.stringify(lay));
   await p.close();
 }
 const p = await (await b.newContext()).newPage();
