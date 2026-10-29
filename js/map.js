@@ -65,5 +65,5 @@
     setTimeout(fit, 60); setTimeout(fit, 400);
     return { routes: routes.size, airports: visits.size, maxN };
   }
-  window.RXMap = { render, destroy: () => { if (map) { map.remove(); map = null; } } };
+  window.RXMap = { render, invalidate: () => { if (map) map.invalidateSize(); }, destroy: () => { if (map) { map.remove(); map = null; } } };
 })();

@@ -1,5 +1,5 @@
 // RIXARLOG service worker: app disponible sin conexión (los datos van por Supabase)
-const CACHE = "rixarlog-v1.8.2";
+const CACHE = "rixarlog-v1.8.3";
 const SHELL = ["./", "index.html", "css/app.css", "manifest.webmanifest", "airports.json",
   "js/lazy.js", "js/config.js", "js/i18n.js", "js/sun.js", "js/store.js", "js/io.js", "js/integrity.js", "js/map.js", "js/help.js", "js/app.js",
   "vendor/supabase.js", "vendor/591.supabase.js", "vendor/chart.umd.js", "vendor/jspdf.umd.min.js",

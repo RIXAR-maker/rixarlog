@@ -267,7 +267,7 @@ table.tt.sel td{color:var(--text)} table.tt.sel tr:first-child th{position:stati
 .modal>*{flex-shrink:0}
 .modal{overflow-x:hidden;min-width:0}
 main#view{max-width:100vw;overflow-wrap:anywhere}
-html,body{overflow-x:hidden}
+html,body{overflow-x:hidden;overflow-x:clip} /* clip: no rompe position:sticky (Safari/iPad) */
 .improw b{overflow-wrap:anywhere}
 .impsum{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(110px,40%),1fr));gap:.5rem;margin:.4rem 0 .8rem}
 .impsum>div{border:1px solid var(--line);border-radius:8px;padding:.5rem .6rem;display:flex;flex-direction:column;gap:.1rem}
@@ -392,3 +392,19 @@ table.log tr.flash td{background:color-mix(in srgb,var(--accent) 14%,var(--panel
 .fchip{display:flex;align-items:center;justify-content:space-between;gap:.8rem;flex-wrap:wrap;border-left:4px solid var(--accent)}
 .fchip small{display:block;color:var(--muted)} .fchip .btnrow{margin:0}
 table.log th{white-space:nowrap}
+
+/* menú lateral fijo y plegable (PC/iPad) */
+body:not(.auth) #app{transition:grid-template-columns .2s ease}
+nav.side{top:56px;height:calc(100vh - 56px);height:calc(100dvh - 56px);overflow-y:auto;overscroll-behavior:contain;align-self:start;z-index:15}
+nav.side a{position:relative;white-space:nowrap}
+nav.side .navtog{margin-top:auto;display:flex;align-items:center;gap:.7rem;padding:.6rem .7rem;border:0;border-radius:8px;background:transparent;color:var(--chrome-text);opacity:.6;font:inherit;font-size:.82rem;cursor:pointer;white-space:nowrap}
+nav.side .navtog:hover{opacity:1;background:var(--chrome-line)}
+nav.side .navtog svg{flex:none;transition:transform .2s}
+body.nav-mini:not(.auth) #app{grid-template-columns:68px 1fr}
+body.nav-mini nav.side{padding:.8rem .45rem;align-items:stretch}
+body.nav-mini nav.side a{justify-content:center;padding:.65rem 0}
+body.nav-mini nav.side a>span,body.nav-mini nav.side .navtog span{display:none}
+body.nav-mini nav.side .ngrp{font-size:0;height:1px;margin:.55rem .4rem;background:var(--chrome-line);padding:0}
+body.nav-mini nav.side .navtog{justify-content:center;padding:.65rem 0}
+body.nav-mini nav.side .navtog svg{transform:rotate(180deg)}
+body.nav-mini nav.side a .nbadge{position:absolute;top:4px;right:8px;margin:0;min-width:16px;height:16px;font-size:.6rem;line-height:16px;padding:0 4px}

@@ -144,7 +144,8 @@
         <div id="sync" class="sync"></div>
         <button class="btn primary add" id="addBtn">+ <span>${t("newEntry")}</span></button>
       </header>
-      <nav class="side">${NAV_GROUPS.map(([g, ks]) => `${g ? `<small class="ngrp">${t(g)}</small>` : '<span class="nsep"></span>'}${ks.map((k) => `<a href="#${k}" data-v="${k}">${ico(IC[k])}<span>${t(k)}</span><i class="nbadge" data-badge="${k}" hidden></i></a>`).join("")}`).join("")}</nav>
+      <nav class="side">${NAV_GROUPS.map(([g, ks]) => `${g ? `<small class="ngrp">${t(g)}</small>` : '<span class="nsep"></span>'}${ks.map((k) => `<a href="#${k}" data-v="${k}" title="${t(k)}">${ico(IC[k])}<span>${t(k)}</span><i class="nbadge" data-badge="${k}" hidden></i></a>`).join("")}`).join("")}
+        <button class="navtog" id="navTog" type="button" aria-label="${t("navToggle")}" title="${t("navToggle")}"><svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M15.4 7.4L14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg><span>${t("navCollapse")}</span></button></nav>
       <main id="view"></main>
       <nav class="tabs">
         ${["dashboard", "logbook"].map((k) => `<a href="#${k}" data-v="${k}">${ico(IC[k])}<span>${t(k)}</span></a>`).join("")}
@@ -153,6 +154,11 @@
         <a href="#more" data-v="more">${ico(IC.more)}<span>${t("more")}</span><i class="nbadge" data-badge="more" hidden></i></a>
       </nav>`;
     $("#addBtn").addEventListener("click", () => (location.hash = "#entry/new"));
+    // menú lateral plegable (PC/iPad): se recuerda; por defecto plegado en pantallas medianas
+    let mini = null; try { mini = localStorage.getItem("rx:navMini"); } catch {}
+    document.body.classList.toggle("nav-mini", mini === null ? innerWidth < 1200 : mini === "1");
+    $("#navTog").addEventListener("click", () => { const on = document.body.classList.toggle("nav-mini");
+      try { localStorage.setItem("rx:navMini", on ? "1" : "0"); } catch {} if (window.RXMap && RXMap.invalidate) setTimeout(() => RXMap.invalidate(), 250); });
     syncBadge();
   }
   function syncBadge() {
@@ -255,7 +261,8 @@
       if (d <= 60) A.push({ c: d < 0 ? "red" : d <= 30 ? "amber" : "cyan", title: doc.kind, sub: `${d < 0 ? t("expired") : d + " " + t("daysLeft")} · ${dmy(doc.expires)}`, href: "#docs", focus: `[data-d="${doc.id}"]` }); }
     const lb = lastBackup();
     if (R.entries.length && (!lb || lb.days >= 30)) A.push({ c: "amber", title: lb ? t("backupOld").replace("{n}", lb.days) : t("backupNever"), sub: t("backupHint"), act: `<button class="btn small primary" data-act="backup">${t("saveCopy")}</button>` });
-    if (isIOS && !standalone && !dismissed) A.push({ c: "cyan", title: t("installTitle"), sub: t("installHint"), act: `<button class="btn small" data-act="install" aria-label="OK">✕</button>` });
+    const dev = /ipad/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ? "iPad" : "iPhone";
+    if (isIOS && !standalone && !dismissed) A.push({ c: "cyan", title: t("installTitle").replace("iPhone", dev), sub: t("installHint").replace("iPhone", dev), act: `<button class="btn small" data-act="install" aria-label="OK">✕</button>` });
     return A;
   }
   function alertRow(a) {

@@ -69,7 +69,8 @@ window.RX_HELP = {
         "**Apariencia:** tema Cabina oscura (ECAM), Manual técnico (FCOM), Híbrido o Rojo aerolínea, e idioma español o inglés.",
         "**Objetivos de horas** para seguir tu progreso en el Panel.",
         "**Cambiar contraseña** y **Borrar mi cuenta**, que elimina de forma permanente la cuenta, los vuelos y el historial. Exporta antes una copia.",
-        "Las secciones de Ajustes se pliegan; la app recuerda cuáles dejaste abiertas."] },
+        "Las secciones de Ajustes se pliegan; la app recuerda cuáles dejaste abiertas.",
+        "En PC e iPad el menú lateral se queda fijo al bajar por la página. Con el botón de abajo («Plegar menú» / ›) lo reduces a iconos o lo despliegas; la app lo recuerda."] },
       { h: "14. EASA y responsabilidad", li: [
         "RIXARLOG sigue el formato de FCL.050 y AMC1 FCL.050: horas en UTC, columnas y totales del modelo EASA, y el tiempo FSTD separado del tiempo de vuelo.",
         "El responsable del contenido del libro es el piloto. Revisa tus anotaciones y los avisos de Controles e Integridad.",
@@ -150,7 +151,8 @@ window.RX_HELP = {
         "**Appearance:** Dark cockpit (ECAM), Technical manual (FCOM), Hybrid or Airline red themes, and Spanish or English.",
         "**Hour targets** to track progress on the Dashboard.",
         "**Change password** and **Delete my account**, which permanently removes account, flights and history. Export a backup first.",
-        "Settings sections collapse; the app remembers which ones you left open."] },
+        "Settings sections collapse; the app remembers which ones you left open.",
+        "On PC and iPad the side menu stays fixed while you scroll. The button at the bottom (“Collapse menu” / ›) shrinks it to icons or expands it; the app remembers."] },
       { h: "14. EASA and responsibility", li: [
         "RIXARLOG follows FCL.050 and AMC1 FCL.050: times in UTC, EASA columns and totals, and FSTD time kept separate from flight time.",
         "The pilot is responsible for the logbook's content. Review your entries and the Checks and Integrity warnings.",
