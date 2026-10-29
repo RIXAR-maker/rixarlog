@@ -30,6 +30,7 @@ window.RX_HELP = {
       { h: "5. Panel y avisos", li: [
         "Arriba ves tus horas totales, las de los últimos 90 días y tu último vuelo.",
         "**Avisos** agrupa lo importante: recencia FCL.060 (3 despegues y aterrizajes en 90 días), documentos que caducan, firmas de formación pendientes, avisos de integridad y copia de seguridad antigua.",
+        "Al tocar un aviso vas directo al problema: el documento que caduca, las anotaciones sin firmar (con «Firmar estas»), los aterrizajes que sostienen tu recencia o el aviso de integridad concreto.",
         "El **mapa de rutas** colorea cada ruta según las veces que la has volado; puedes ver todo, últimos 12 meses o el año.",
         "Los gráficos muestran horas por mes, por tipo e hitos alcanzados."] },
       { h: "6. Estadísticas", li: [
@@ -110,6 +111,7 @@ window.RX_HELP = {
       { h: "5. Dashboard and alerts", li: [
         "At the top: total hours, last 90 days and your last flight.",
         "**Alerts** gathers what matters: FCL.060 recency (3 take-offs and landings in 90 days), expiring documents, pending training signatures, integrity warnings and an old backup.",
+        "Tapping an alert takes you straight to the problem: the expiring document, the unsigned entries (with “Sign these”), the landings behind your recency or the specific integrity warning.",
         "The **route map** colours each route by how often you have flown it; view all time, last 12 months or the year.",
         "Charts show hours per month, by type and milestones reached."] },
       { h: "6. Statistics", li: [

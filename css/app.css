@@ -385,3 +385,10 @@ details.help ul{margin:.2rem 0 0;padding-left:1.1rem} details.help li{margin:.45
 details.help p{line-height:1.5;margin:.3rem 0}
 details.help .tip{border-left:3px solid var(--accent);padding:.5rem .7rem;background:color-mix(in srgb,var(--accent) 8%,transparent);color:var(--muted);font-size:.92em;margin-top:.8rem}
 @media (max-width:700px){.helphead .btn{width:100%}}
+/* aviso → elemento concreto */
+@keyframes rxflash{0%,100%{box-shadow:0 0 0 0 transparent}15%,60%{box-shadow:0 0 0 3px var(--accent)}}
+.flash{animation:rxflash 2.4s ease;border-radius:var(--radius)}
+table.log tr.flash td{background:color-mix(in srgb,var(--accent) 14%,var(--panel))}
+.fchip{display:flex;align-items:center;justify-content:space-between;gap:.8rem;flex-wrap:wrap;border-left:4px solid var(--accent)}
+.fchip small{display:block;color:var(--muted)} .fchip .btnrow{margin:0}
+table.log th{white-space:nowrap}

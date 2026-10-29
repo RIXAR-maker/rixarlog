@@ -182,7 +182,25 @@
     const fn = VIEWS[v] || VIEWS.dashboard;
     view.innerHTML = ""; window.scrollTo(0, 0);
     fn(view, arg);
+    if (pendingFocus) { const sel0 = pendingFocus; pendingFocus = null; focusOn(sel0); }
   }
+  // llevar al usuario al elemento concreto (aviso → anotación, documento, firma…)
+  let pendingFocus = null;
+  function focusOn(selector, tries = 0) {
+    const x = document.querySelector(selector);
+    if (!x || !x.offsetParent) { if (tries < 25) setTimeout(() => focusOn(selector, tries + 1), 120); return; }
+    x.scrollIntoView({ block: "center", behavior: "smooth" });
+    x.classList.remove("flash"); void x.offsetWidth; x.classList.add("flash"); setTimeout(() => x.classList.remove("flash"), 2600);
+  }
+  document.addEventListener("click", (e) => {
+    const nv = e.target.closest && e.target.closest("nav a[data-v]");
+    if (nv) { const had = !!logFilter.ids; logFilter.ids = null; logFilter.label = ""; logFilter.sign = false;
+      if (had && nv.getAttribute("href") === location.hash) { e.preventDefault(); route(); } return; }
+    const a = e.target.closest && e.target.closest("a[data-focus], a[data-ids]"); if (!a) return;
+    if (a.dataset.ids) { logFilter = { ...logFilter, kind: "all", q: "", year: "", ids: a.dataset.ids.split(","), label: a.dataset.label || "", sign: a.dataset.sign === "1" }; }
+    if (a.dataset.focus) pendingFocus = a.dataset.focus;
+    if (a.getAttribute("href") === location.hash) { e.preventDefault(); route(); }
+  });
   window.addEventListener("hashchange", route);
   let rerenderTimer;
   R.on(() => { clearTimeout(rerenderTimer); rerenderTimer = setTimeout(() => {
@@ -212,20 +230,29 @@
   // ---------- PANEL
   let mapPeriod = "all";
   const daysUntil = (iso) => Math.floor((Date.parse(iso + "T00:00:00Z") - Date.parse(todayISO() + "T00:00:00Z")) / 864e5);
+  // anotaciones que sostienen la recencia: las últimas con aterrizajes hasta sumar 3
+  function recencyRows(ty) {
+    const out = []; let n = 0;
+    for (const r of R.entries.filter((x) => x.kind === "FLT" && x.ac_type === ty).slice().reverse()) {
+      const l = (r.ldg_day || 0) + (r.ldg_night || 0); if (!l) continue; out.push(r); n += l; if (n >= 3) break; }
+    return out;
+  }
   function alertsList() {
     const A = [];
     const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
     const standalone = window.navigator.standalone || matchMedia("(display-mode: standalone)").matches;
     let dismissed = false; try { dismissed = localStorage.getItem("rx:installDismissed") === "1"; } catch {}
     const nI = openIssues().filter((x) => x.type !== "check").length;
-    if (nI) A.push({ c: "red", title: `${nI} ${t("issuesOpen")}`, sub: t("issuesHint"), href: "#integrity" });
+    if (nI) A.push({ c: "red", title: `${nI} ${t("issuesOpen")}`, sub: t("issuesHint"), href: "#integrity", focus: '.issue:not([data-type="check"])' });
     const lim = new Date(Date.now() - 365 * 864e5).toISOString().slice(0, 10);
     for (const ty of [...new Set(R.entries.filter((r) => r.kind === "FLT" && r.date >= lim).map((r) => r.ac_type))].filter(Boolean)) {
       const u = R.recency(ty); const d = u ? daysUntil(u) : -1;
-      if (d <= 14) A.push({ c: d < 0 ? "red" : "amber", title: `${t("recency")} ${ty}`, sub: d < 0 ? `${t("expired")}${u ? " " + dmy(u) : ""}` : `${t("validUntil")} ${dmy(u)} · ${d} ${t("daysLeft")}`, href: "#stats/totals" });
+      if (d <= 14) { const ids = recencyRows(ty).map((r) => r.id);
+        const sub = d < 0 ? `${t("expired")}${u ? " " + dmy(u) : ""}` : `${t("validUntil")} ${dmy(u)} · ${d} ${t("daysLeft")}`;
+        A.push({ c: d < 0 ? "red" : "amber", title: `${t("recency")} ${ty}`, sub, href: "#logbook", ids, label: `${t("recency")} ${ty} · ${t("lastLdgs")} · ${sub}` }); }
     }
     for (const doc of R.documents.filter((x) => x.expires)) { const d = daysUntil(doc.expires);
-      if (d <= 60) A.push({ c: d < 0 ? "red" : d <= 30 ? "amber" : "cyan", title: doc.kind, sub: `${d < 0 ? t("expired") : d + " " + t("daysLeft")} · ${dmy(doc.expires)}`, href: "#docs" }); }
+      if (d <= 60) A.push({ c: d < 0 ? "red" : d <= 30 ? "amber" : "cyan", title: doc.kind, sub: `${d < 0 ? t("expired") : d + " " + t("daysLeft")} · ${dmy(doc.expires)}`, href: "#docs", focus: `[data-d="${doc.id}"]` }); }
     const lb = lastBackup();
     if (R.entries.length && (!lb || lb.days >= 30)) A.push({ c: "amber", title: lb ? t("backupOld").replace("{n}", lb.days) : t("backupNever"), sub: t("backupHint"), act: `<button class="btn small primary" data-act="backup">${t("saveCopy")}</button>` });
     if (isIOS && !standalone && !dismissed) A.push({ c: "cyan", title: t("installTitle"), sub: t("installHint"), act: `<button class="btn small" data-act="install" aria-label="OK">✕</button>` });
@@ -233,14 +260,15 @@
   }
   function alertRow(a) {
     const inner = `<span class="dot ${a.c}"></span><div><b>${h(a.title)}</b><small>${h(a.sub || "")}</small></div>`;
-    return a.href ? `<a class="arow" href="${a.href}">${inner}<span class="chev">›</span></a>` : `<div class="arow">${inner}${a.act || ""}</div>`;
+    const dat = (a.focus ? ` data-focus="${h(a.focus)}"` : "") + (a.ids ? ` data-ids="${h(a.ids.join(","))}" data-label="${h(a.label || "")}"${a.sign ? ' data-sign="1"' : ""}` : "");
+    return a.href ? `<a class="arow" href="${a.href}"${dat}>${inner}<span class="chev">›</span></a>` : `<div class="arow">${inner}${a.act || ""}</div>`;
   }
   async function unsignedTraining() {
     const lim = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
-    const re = /LIFUS|LINE ?TRAINING|TRAINING|CHECK|UPRT|SKILL ?TEST|EXAMEN|LPC|OPC|SUELTA|RELEASE/i; let n = 0;
+    const re = /LIFUS|LINE ?TRAINING|TRAINING|CHECK|UPRT|SKILL ?TEST|EXAMEN|LPC|OPC|SUELTA|RELEASE/i; const ids = [];
     for (const r of R.entries.filter((e) => e.date >= lim && (e.dual_min > 0 || e.picus || re.test(e.remarks || "")))) {
-      const sg = await sigState(r); if (!sg || !sg.valid) n++; }
-    return n;
+      const sg = await sigState(r); if (!sg || !sg.valid) ids.push(r.id); }
+    return ids;
   }
   async function drawCharts() {
     await window.RXLoad("chart"); if (!$("#cMonth")) return;
@@ -305,8 +333,9 @@
       more.textContent = exp ? t("showLess") : `${t("showAll")} (${rows.length})`; };
     $("#amore").addEventListener("click", () => { $("#amore").dataset.exp = $("#amore").dataset.exp === "1" ? "0" : "1"; fold(); });
     fold();
-    unsignedTraining().then((n) => { if (!n || !$("#alist")) return; $("#alerts").hidden = false;
-      $("#alist").insertAdjacentHTML("afterbegin", alertRow({ c: "amber", title: `${n} ${t("unsignedN")}`, sub: t("unsignedHint"), href: "#logbook" })); fold(); });
+    unsignedTraining().then((ids) => { const n = ids.length; if (!n || !$("#alist")) return; $("#alerts").hidden = false;
+      const a = n === 1 ? { href: "#entry/" + ids[0], focus: "#sigs" } : { href: "#logbook", ids, label: `${n} ${t("unsignedN")}`, sign: true };
+      $("#alist").insertAdjacentHTML("afterbegin", alertRow({ c: "amber", title: `${n} ${t("unsignedN")}`, sub: t("unsignedHint"), ...a })); fold(); });
     const drawMap = async () => {
       await window.RXLoad("map"); if (!$("#rmap")) return;
       const y0 = todayISO().slice(0, 4) + "-01-01";
@@ -330,7 +359,7 @@
   }
 
   // ---------- LIBRO
-  let logFilter = { kind: "all", q: "", year: "", limit: 150 };
+  let logFilter = { kind: "all", q: "", year: "", limit: 150, ids: null, label: "", sign: false };
   // ---------- FIRMAS
   async function sigState(r) {
     const L = R.sigsFor(r.id); if (!L.length) return null;
@@ -401,11 +430,14 @@
         <div class="tb2"><input id="q" type="search" placeholder="${t("search")}" value="${h(logFilter.q)}">
           <select id="yr" aria-label="${t("year")}"><option value="">${t("year")}</option>${years.map((y) => `<option ${y === logFilter.year ? "selected" : ""}>${y}</option>`).join("")}</select></div>
       </div>`}
+      ${logFilter.ids && !selMode ? `<div class="panel fchip"><div><b>${h(logFilter.label || "")}</b><small>${t("filteredFromAlert")}</small></div>
+        <div class="btnrow">${logFilter.sign ? `<button class="btn small primary" id="fSign">✍ ${t("signThese")}</button>` : ""}<button class="btn small" id="fClr">✕ ${t("clearFilter")}</button></div></div>` : ""}
       <div id="list"></div>
       <div id="selBar" class="selbar" ${selMode ? "" : "hidden"}><span id="selN"></span><button class="btn" id="selX">${t("cancel")}</button><button class="btn primary" id="selGo">✍ ${t("sign")}</button></div>`;
     const draw = () => {
       const q = logFilter.q.toLowerCase();
-      let rows = R.entries.filter((r) => (logFilter.kind === "all" || r.kind === logFilter.kind) && (!logFilter.year || r.date.startsWith(logFilter.year)) &&
+      const idset = logFilter.ids ? new Set(logFilter.ids) : null;
+      let rows = R.entries.filter((r) => (!idset || idset.has(r.id)) && (logFilter.kind === "all" || r.kind === logFilter.kind) && (!logFilter.year || r.date.startsWith(logFilter.year)) &&
         (!q || [dmy(r.date), r.dep, r.arr, r.ac_type, r.registration, r.pic_name, r.remarks, r.fstd_type].join(" ").toLowerCase().includes(q)));
       const n = rows.length; const allRows = rows; rows = rows.slice().reverse().slice(0, logFilter.limit);
       const mtot = new Map(); for (const r of allRows) { const k = r.date.slice(0, 7); const o = mtot.get(k) || { f: 0, s: 0, n: 0 }; o.f += r.total_min || 0; o.s += r.fstd_min || 0; o.n++; mtot.set(k, o); }
@@ -414,8 +446,8 @@
       const withHeads = (fn, headFn) => { let last = ""; return rows.map((r) => { const k = r.date.slice(0, 7); const hd = k !== last ? headFn(k) : ""; last = k; return hd + fn(r); }).join(""); };
       $("#list").innerHTML = !R.entries.length ? `<div class="panel muted">${t("noEntries")}</div>` : `
         <table class="log">
-          <thead><tr><th>${t("date")}</th><th>${t("dep")}</th><th>${t("arr")}</th><th>${t("type")}</th><th>${t("reg")}</th><th>${t("total")}</th>
-            <th>${t("role")}</th><th>${t("picName")}</th><th>${t("night")}</th><th>IFR</th><th>Ldg</th><th>${t("remarks")}</th><th></th></tr></thead>
+          <thead><tr><th>${t("date")}</th><th>${t("dep")}</th><th>${t("arr")}</th><th>${t("type")}</th><th>${t("reg")}</th><th>${t("thTotal")}</th>
+            <th>${t("role")}</th><th>PIC</th><th>${t("night")}</th><th>IFR</th><th>Ldg</th><th>${t("thRem")}</th><th></th></tr></thead>
           <tbody>${withHeads(rowHtml, (k) => `<tr class="mhead"><td colspan="13"><span>${h(mlabel(k))}</span><span>${msum(k)}</span></td></tr>`)}</tbody></table>
         <div class="cards">${withHeads(cardHtml, (k) => `<div class="mhead"><span>${h(mlabel(k))}</span><span>${msum(k)}</span></div>`)}</div>
         ${n > rows.length ? `<button class="btn wide" id="more">${t("loadMore")} (${rows.length}/${n})</button>` : `<p class="fine center">${n} ${t("entries")}</p>`}`;
@@ -438,10 +470,13 @@
         $$("[data-m]", o).forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); close(); const m = a.dataset.m;
           if (m === "sign") { selMode = true; sel.clear(); VIEWS.logbook(el); } else if (m === "pdf") IO.exportPdf(); else if (m === "xlsx") IO.exportXlsx(); else IO.exportCsv(); }));
       }));
+    const clrF = () => { logFilter.ids = null; logFilter.label = ""; logFilter.sign = false; };
+    if ($("#fClr")) $("#fClr").addEventListener("click", () => { clrF(); VIEWS.logbook(el); });
+    if ($("#fSign")) $("#fSign").addEventListener("click", () => { selMode = true; sel.clear(); logFilter.ids.forEach((i) => sel.add(i)); VIEWS.logbook(el); });
     const updSel = () => { $("#selN").textContent = `${sel.size} ${t("selected")}`; $("#selGo").disabled = !sel.size; };
 
     $("#selX").addEventListener("click", () => { selMode = false; sel.clear(); VIEWS.logbook(el); });
-    $("#selGo").addEventListener("click", () => signModal(R.entries.filter((r) => sel.has(r.id)), () => { selMode = false; sel.clear(); VIEWS.logbook(el); }));
+    $("#selGo").addEventListener("click", () => signModal(R.entries.filter((r) => sel.has(r.id)), () => { selMode = false; sel.clear(); clrF(); VIEWS.logbook(el); }));
     updSel();
     draw();
   };
@@ -1112,7 +1147,7 @@
       ${!open.length ? `<p class="chip green">${t("integrityOk")}</p>` : ""}
       ${done ? `<p class="fine">${done} ${t("reviewedN")} <a href="#" id="unrev">${t("showAgain")}</a></p>` : ""}</div>
       ${groups.map(([k, c]) => { const L = open.filter((x) => x.type === k); if (!L.length) return "";
-        return `<div class="panel"><h3>${t("iss_" + k)}</h3>${L.slice(0, 200).map((x) => `<div class="issue ${c}">
+        return `<div class="panel"><h3>${t("iss_" + k)}</h3>${L.slice(0, 200).map((x) => `<div class="issue ${c}" data-type="${k}">
           <div>${x.rows.map((r) => `<a href="#entry/${r.id}">${h(desc(r))}</a>`).join("<span class='vs'>↔</span>")}${x.codes ? `<small>${x.codes.map(t).join(" · ")}</small>` : ""}</div>
           ${x.rows.length > 1 ? `<div class="ia"><button class="btn small" data-rev="${pairKey(x.rows)}">${t("markOk")}</button><button class="btn small danger" data-delb="${x.rows[1].id}">${t("delSecond")}</button></div>` : ""}</div>`).join("")}</div>`; }).join("")}`;
     $$("[data-rev]", el).forEach((b) => b.addEventListener("click", async () => { const s2 = st(); const list = new Set(s2.reviewed || []); list.add(b.dataset.rev);
