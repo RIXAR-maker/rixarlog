@@ -128,9 +128,10 @@
     settings: "M19.4 13a7.5 7.5 0 000-2l2.1-1.6-2-3.5-2.5 1a7.6 7.6 0 00-1.7-1L15 3h-4l-.3 2.9a7.6 7.6 0 00-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 000 2l-2.1 1.6 2 3.5 2.5-1a7.6 7.6 0 001.7 1L11 21h4l.3-2.9a7.6 7.6 0 001.7-1l2.5 1 2-3.5-2.1-1.6zM13 15.5a3.5 3.5 0 110-7 3.5 3.5 0 010 7z",
     more: "M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z",
     logout: "M10 17l1.4-1.4-2.6-2.6H20v-2H8.8l2.6-2.6L10 7l-5 5 5 5zM4 5h8V3H4a2 2 0 00-2 2v14a2 2 0 002 2h8v-2H4V5z",
+    help: "M12 2a10 10 0 100 20 10 10 0 000-20zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92A3.4 3.4 0 0013 15h-2v-.5a4 4 0 011.17-2.83l1.24-1.26A2 2 0 1010 9H8a4 4 0 118 0 3.2 3.2 0 01-.93 2.25z",
     privacy: "M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z",
   };
-  const NAV_GROUPS = [[null, ["dashboard", "logbook", "stats"]], ["grpRecords", ["docs", "aircraft"]], ["grpQuality", ["integrity", "history"]], [null, ["settings"]]];
+  const NAV_GROUPS = [[null, ["dashboard", "logbook", "stats"]], ["grpRecords", ["docs", "aircraft"]], ["grpQuality", ["integrity", "history"]], [null, ["settings", "help"]]];
   const NAV = NAV_GROUPS.flatMap((g) => g[1]).map((k) => [k, IC[k]]);
   const VIEW_ALIAS = { totals: "stats", reports: "stats", wrapped: "stats" };
   const ico = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`;
@@ -851,6 +852,22 @@
     $("#lo").addEventListener("click", (e) => { e.preventDefault(); sb.auth.signOut(); });
     $("#pv").addEventListener("click", (e) => { e.preventDefault(); showPrivacy(); });
     paintBadges();
+  };
+
+  // ---------- AYUDA
+  VIEWS.help = (el) => {
+    const G = window.RX_HELP[lang] || window.RX_HELP.es;
+    const md = (x) => h(x).replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+    el.innerHTML = `<div class="panel helphead"><div><h3>${h(G.title)}</h3><p class="fine">${h(G.sub)} · v${window.RX_CONFIG.version}</p></div>
+        <button class="btn primary" id="hPdf">${h(G.pdf)}</button></div>
+      ${G.sections.map((s, i) => `<details class="panel sect help"${i === 0 ? " open" : ""}><summary><h3>${h(s.h)}</h3></summary>
+        ${s.p ? `<p>${md(s.p)}</p>` : ""}<ul>${s.li.map((x) => `<li>${md(x)}</li>`).join("")}</ul>
+        ${s.tip ? `<p class="tip">${md(s.tip)}</p>` : ""}</details>`).join("")}`;
+    $("#hPdf").addEventListener("click", async (e) => {
+      const b = e.currentTarget; b.disabled = true;
+      try { await window.RX_HELP_PDF(lang, window.RX_CONFIG.version); } catch (err) { toast(String(err.message || err), "err"); }
+      b.disabled = false;
+    });
   };
 
   // ---------- AJUSTES

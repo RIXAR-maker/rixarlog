@@ -40,6 +40,12 @@ ok("two different FSTD sessions both kept", r.st[3] === "new" && ["new", "filepr
 ok("valid rows pass checks", r.checks[0] === 0, r.checks.join());
 const dur = await p.evaluate(() => [RXIO.parseDur("1:35"), RXIO.parseDur("1.5"), RXIO.parseDur("90", "min"), RXIO.hm(605)]);
 ok("duration parsing", JSON.stringify(dur) === JSON.stringify([95, 90, 90, "10:05"]), JSON.stringify(dur));
+// guía de uso: contenido ES/EN paralelo y PDF generado
+const g = await p.evaluate(() => ({ es: RX_HELP.es.sections.length, en: RX_HELP.en.sections.length, li: RX_HELP.es.sections.map((x) => x.li.length).join() === RX_HELP.en.sections.map((x) => x.li.length).join() }));
+ok("help guide ES/EN in sync", g.es >= 10 && g.es === g.en && g.li, JSON.stringify(g));
+const dlCtx = await b.newContext({ acceptDownloads: true }); const p2 = await dlCtx.newPage(); await p2.goto(BASE); await p2.waitForFunction(() => window.RX_HELP_PDF);
+const [dl] = await Promise.all([p2.waitForEvent("download"), p2.evaluate(() => RX_HELP_PDF("es", "test"))]);
+ok("help PDF generated", /Guia_de_uso/.test(dl.suggestedFilename()), dl.suggestedFilename());
 await b.close();
 for (const x of res) console.log(...x);
 const fail = res.filter((x) => x[0] === "FAIL").length;

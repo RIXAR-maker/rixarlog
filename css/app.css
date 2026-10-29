@@ -378,3 +378,10 @@ details.sect[open]>summary{margin-bottom:.8rem}
 }
 @media print{nav,header{display:none!important} body:not(.auth) #app{display:block}}
 .menu a .nbadge[hidden]+.chev{margin-left:auto}
+/* ayuda */
+.helphead{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.helphead h3{margin:0 0 .2rem}
+details.help ul{margin:.2rem 0 0;padding-left:1.1rem} details.help li{margin:.45rem 0;line-height:1.5}
+details.help p{line-height:1.5;margin:.3rem 0}
+details.help .tip{border-left:3px solid var(--accent);padding:.5rem .7rem;background:color-mix(in srgb,var(--accent) 8%,transparent);color:var(--muted);font-size:.92em;margin-top:.8rem}
+@media (max-width:700px){.helphead .btn{width:100%}}
