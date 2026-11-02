@@ -47,7 +47,7 @@ window.RX_HELP = {
         "Cada firma guarda una huella de los datos. Si después se modifica la anotación, la firma queda **invalidada** y se marca en rojo en el libro y en el PDF."],
         tip: "Comprueba en el OM-A de tu operador si admite firmas electrónicas para endosos de formación." },
       { h: "9. Importar datos", li: [
-        "**Ajustes → Importar → Importar CSV.** Sirve para Excel exportado como CSV y para la mayoría de logbooks. Asigna cada campo a una columna de tu archivo; la app propone la asignación.",
+        "**Ajustes → Importar → Importar CSV / Excel.** Acepta CSV y Excel (.xlsx). Si tu Excel es un libro por páginas (cabecera DATE · PLACE · TIME… repetida y filas de totales), lo reconoce solo, salta los totales y te avisa de las filas sin fecha. Asigna cada campo a una columna de tu archivo; la app propone la asignación.",
         "Antes de importar verás una **revisión**: nuevas, idénticas a las que ya tienes, repetidas en el archivo y probables duplicados. Por defecto se omiten las idénticas y los probables duplicados; puedes cambiarlo fila a fila.",
         "Cada importación queda registrada en **Importaciones** y se puede **Deshacer** entera.",
         "**Restaurar copia JSON** recupera una copia completa hecha con RIXARLOG.",
@@ -129,7 +129,7 @@ window.RX_HELP = {
         "Each signature stores a fingerprint of the data. If the entry is changed later the signature is **voided** and shown in red in the logbook and PDF."],
         tip: "Check in your operator's OM-A whether electronic signatures are accepted for training endorsements." },
       { h: "9. Importing data", li: [
-        "**Settings → Import → Import CSV.** Works with Excel saved as CSV and most logbooks. Map each field to a column in your file; the app suggests a mapping.",
+        "**Settings → Import → Import CSV / Excel.** Accepts CSV and Excel (.xlsx). Page-style Excel logbooks (repeated DATE · PLACE · TIME… header and total rows) are recognised automatically, totals are skipped and undated rows are flagged. Map each field to a column in your file; the app suggests a mapping.",
         "Before importing you get a **review**: new, identical to existing, repeated within the file, and probable duplicates. Identical and probable duplicates are skipped by default; you can change it row by row.",
         "Each import is listed under **Imports** and can be **undone** as a whole.",
         "**Restore JSON backup** recovers a full RIXARLOG backup.",

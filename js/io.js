@@ -308,6 +308,114 @@
     return m;
   }
 
+  // ---------- Excel
+  // Formato "libro de papel" en Excel: páginas con cabecera repetida (DATE · PLACE · TIME · PLACE · TIME · MODEL ·
+  // REGISTRATION …) y filas TOTAL THIS PAGE / PREV PAGE / TOTAL TIME. Las columnas pueden cambiar de una página a
+  // otra (p. ej. al añadir MULTI-PILOT o COPILOT), así que cada cabecera redefine el mapa de columnas.
+  const HDR = [
+    [/^(date|fecha)$/, "date"], [/^(place|lugar|aeropuerto)$/, "place"], [/^(time|hora)$/, "time"],
+    [/^(model|type|tipo|modelo|make,? model)$/, "ac_type"], [/^(registration|reg\.?|matr[ií]cula)$/, "registration"],
+    [/^(se|sp se|single[- ]engine)$/, "se"], [/^(me|sp me|multi[- ]engine)$/, "me"], [/^(multi[- ]?pilot|mp|multipiloto)$/, "mp_min"],
+    [/^total( time)?( of)?( flight)?( time)?$|^(tiempo )?total( de vuelo)?$/, "total_min"],
+    [/^(ldg|ldgs|landings?|aterrizajes|aterr\.?)$/, "ldg"], [/^(night|noche)$/, "night_min"], [/^ifr$/, "ifr_min"],
+    [/^pic$/, "pic_min"], [/^(co-?pilot|copiloto)$/, "cop_min"], [/^(dual|doble mando)$/, "dual_min"],
+    [/^(instr\.?|instructor|fi)$/, "instr_min"], [/^(synthetic training devices? session|fstd( session)?|sim(ulator)?)$/, "fstd_min"],
+    [/^(name pic|pic name|nombre pic|commander)$/, "pic_name"], [/^(remarks( and endorsements)?|observaciones)$/, "remarks"],
+  ];
+  const hdrKey = (s) => { s = String(s || "").toLowerCase().replace(/\s+/g, " ").trim(); const h = HDR.find(([re]) => re.test(s)); return h ? h[1] : null; };
+  const serialDate = (n) => new Date(Date.UTC(1899, 11, 30) + Math.round(n) * 86400000).toISOString().slice(0, 10);
+  const cellTime = (v) => { if (typeof v === "number") { const m = Math.round((v % 1) * 1440) % 1440; return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); } return parseTime(String(v)); };
+  const cellDur = (v) => typeof v === "number" ? Math.round(v * 1440) : parseDur(v);
+  const cellInt = (v) => typeof v === "number" ? Math.round(v) : parseInt(v, 10) || 0;
+  const flag = (v) => v != null && v !== "" && (typeof v === "number" ? v > 0 : /^(x|✓|✔|1|si|sí|yes)$/i.test(String(v).trim()));
+  // fechas mal tecleadas ("28//11/20", "7/1025"): solo se aceptan si caen entre la fila anterior y la siguiente
+  const dateGuesses = (s) => { s = String(s).trim(); const out = []; let m;
+    const a = s.replace(/([\/.\-])\1+/g, "$1"); if (a !== s) out.push(parseDate(a));
+    if ((m = s.match(/^(\d{1,2})[\/.\-](\d{2})(\d{2})$/))) out.push(parseDate(`${m[1]}/${m[2]}/${m[3]}`));
+    return out.filter(Boolean); };
+
+  function findPaperHeaders(ws, X) {
+    const ref = ws["!ref"]; if (!ref) return [];
+    const R = X.utils.decode_range(ref); const heads = [];
+    for (let r = R.s.r; r <= R.e.r; r++) {
+      const cols = {}; let places = 0, times = 0, known = 0, last = -1;
+      for (let c = R.s.c; c <= R.e.c; c++) {
+        const cell = ws[X.utils.encode_cell({ r, c })]; if (!cell || cell.t !== "s") continue;
+        let k = hdrKey(cell.v); if (!k) continue;
+        if (k === "place") k = places++ ? "arr" : "dep";
+        else if (k === "time") k = times++ ? "on_time" : "off_time";
+        if (cols[k] == null) { cols[k] = c; known++; last = Math.max(last, c); }
+      }
+      if (cols.date != null && cols.dep != null && cols.arr != null && known >= 6 && (cols.registration != null || cols.ac_type != null) && cols.total_min != null) heads.push({ r, cols, text: last + 1 });
+    }
+    return heads;
+  }
+
+  function parsePaper(ws, X, heads) {
+    const R = X.utils.decode_range(ws["!ref"]);
+    const val = (r, c) => { if (c == null) return null; const cell = ws[X.utils.encode_cell({ r, c })];
+      if (!cell || cell.v == null || cell.t === "e") return null; return cell.t === "s" ? (cell.v.trim() || null) : cell.v; };
+    const raw = [], issues = [];
+    heads.forEach((hd, i) => {
+      const end = i + 1 < heads.length ? heads[i + 1].r - 1 : R.e.r; const C = hd.cols;
+      const remarkCols = []; if (C.remarks != null) remarkCols.push(C.remarks);
+      for (let c = hd.text; c <= Math.min(hd.text + 2, R.e.c); c++) if (!remarkCols.includes(c)) remarkCols.push(c);
+      for (let r = hd.r + 1; r <= end; r++) {
+        const g = (k) => val(r, C[k]);
+        const label = [g("registration"), g("ac_type")].find((x) => typeof x === "string");
+        if (label && /^total/i.test(label)) continue; // filas de totales
+        const d = g("date"); const texts = remarkCols.map((c) => val(r, c)).filter((x) => typeof x === "string");
+        const dep = g("dep"), arr = g("arr"), total = g("total_min"), fstd = g("fstd_min");
+        if (d == null && dep == null && total == null && fstd == null && !texts.length) continue; // vacía o suelta
+        const o = { _row: r + 1, _d: d };
+        o.date = typeof d === "number" ? serialDate(d) : d != null ? parseDate(String(d)) : null;
+        const isFstd = !dep && !arr && !total && !g("registration") && fstd;
+        if (isFstd) {
+          o.kind = "FSTD"; o.fstd_min = cellDur(fstd);
+          const ty = texts.find((x) => /\d/.test(x)); if (ty) o.fstd_type = ty;
+          const rm = texts.filter((x) => x !== ty); if (rm.length) o.remarks = rm.join(" · ");
+        } else {
+          if (!dep && !arr && !total) { if (d != null || texts.length) issues.push({ row: r + 1, msg: "noFlight" }); continue; }
+          o.kind = "FLT"; o.dep = dep; o.arr = arr; o.ac_type = g("ac_type"); o.registration = g("registration") && String(g("registration"));
+          o.off_time = g("off_time") != null ? cellTime(g("off_time")) : null; o.on_time = g("on_time") != null ? cellTime(g("on_time")) : null;
+          o.total_min = total != null ? cellDur(total) : 0;
+          for (const f of ["mp_min", "night_min", "ifr_min", "pic_min", "cop_min", "dual_min", "instr_min"]) if (g(f) != null) o[f] = cellDur(g(f));
+          for (const [k, f] of [["se", "se_min"], ["me", "me_min"]]) { const v = g(k);
+            if (typeof v === "number" && v < 1) o[f] = cellDur(v); else if (flag(v)) o[f] = o.total_min; }
+          if (g("pic_name")) o.pic_name = String(g("pic_name"));
+          if (g("ldg") != null) { const n = cellInt(g("ldg")); if (o.night_min && o.night_min >= o.total_min) o.ldg_night = n; else o.ldg_day = n; }
+          if (texts.length) o.remarks = texts.join(" · ");
+          if (fstd != null && typeof fstd === "string") o.remarks = [o.remarks, fstd].filter(Boolean).join(" · ");
+        }
+        raw.push(o);
+      }
+    });
+    // fechas: reparar las ilegibles con ayuda de las vecinas; sin fecha → a revisar a mano
+    raw.forEach((o, i) => {
+      if (o.date) return;
+      if (o._d == null) { issues.push({ row: o._row, msg: "noDate" }); return; }
+      const prev = raw.slice(0, i).reverse().find((x) => x.date), next = raw.slice(i + 1).find((x) => x.date && x._d != null && typeof x._d === "number");
+      const ok = dateGuesses(o._d).find((g) => (!prev || g >= prev.date) && (!next || g <= next.date));
+      if (ok) { o.date = ok; issues.push({ row: o._row, msg: "dateFixed", info: `${o._d} → ${dmy(ok)}` }); }
+      else issues.push({ row: o._row, msg: "badDate", info: String(o._d) });
+    });
+    const rows = raw.filter((o) => o.date).map((o) => { delete o._row; delete o._d; return normalize(o); });
+    return { rows, issues, pages: heads.length };
+  }
+
+  // devuelve { kind: "paper", rows, issues } para el formato por páginas, o { kind: "table", rows } (texto) para el resto
+  function parseWorkbook(wb) {
+    const X = window.XLSX;
+    let best = null;
+    for (const name of wb.SheetNames) { const ws = wb.Sheets[name]; const heads = findPaperHeaders(ws, X);
+      if (heads.length && (!best || heads.length > best.heads.length)) best = { name, ws, heads }; }
+    if (best) return { kind: "paper", sheet: best.name, ...parsePaper(best.ws, X, best.heads) };
+    const name = wb.SheetNames.find((n) => wb.Sheets[n]["!ref"]) || wb.SheetNames[0];
+    const rows = X.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: false, defval: "", dateNF: "yyyy-mm-dd" })
+      .map((r) => r.map((x) => String(x))).filter((r) => r.some((x) => x.trim() !== ""));
+    return { kind: "table", sheet: name, rows };
+  }
+
   // copia al dispositivo: menú compartir (iCloud Drive / Archivos) o descarga
   async function saveToDevice() {
     const files = [exportJson({ file: true }), await exportXlsx({ file: true })];
@@ -319,5 +427,5 @@
     return "downloaded";
   }
   window.RXIO = { saveToDevice, exportCsv, exportJson, exportXlsx, exportPdf, selectionPdf, selectionText, selectionData,
-    parseCsv, mapRows, guessMapping, normalize, parseDur, hm, hmBlank, hhmm, dmy, FIELDS, DUR };
+    parseCsv, parseWorkbook, mapRows, guessMapping, normalize, parseDur, hm, hmBlank, hhmm, dmy, FIELDS, DUR };
 })();

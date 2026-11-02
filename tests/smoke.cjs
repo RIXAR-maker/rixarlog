@@ -46,6 +46,31 @@ ok("two different FSTD sessions both kept", r.st[3] === "new" && ["new", "filepr
 ok("valid rows pass checks", r.checks[0] === 0, r.checks.join());
 const dur = await p.evaluate(() => [RXIO.parseDur("1:35"), RXIO.parseDur("1.5"), RXIO.parseDur("90", "min"), RXIO.hm(605)]);
 ok("duration parsing", JSON.stringify(dur) === JSON.stringify([95, 90, 90, "10:05"]), JSON.stringify(dur));
+// Excel tipo libro por páginas: cabeceras repetidas que cambian de columnas, filas de totales, FSTD, fecha mal tecleada
+const xp = await p.evaluate(async () => {
+  await RXLoad("xlsx");
+  const t = (h, m) => (h * 60 + m) / 1440, dd = (y, mo, d) => Date.UTC(y, mo - 1, d) / 86400000 + 25569;
+  const H1 = ["", "DATE", "PLACE", "TIME", "PLACE", "TIME", "MODEL", "REGISTRATION", "SE", "ME", "TOTAL TIME FLIGHT", "LDG", "NIGHT", "IFR", "PIC", "DUAL", "SYNTHETIC TRAINING DEVICES SESSION"];
+  const H2 = ["", "DATE", "PLACE", "TIME", "PLACE", "TIME", "MODEL", "REGISTRATION", "SE", "ME", "MULTI-PILOT", "TOTAL TIME FLIGHT", "LDG", "NIGHT", "IFR", "PIC", "COPILOT", "DUAL", "SYNTHETIC TRAINING DEVICES SESSION"];
+  const aoa = [[], ["", "", "", "", "", "", "", "", "", "", "notas sueltas"], H1,
+    ["", dd(2015, 3, 2), "LEMG", t(8, 0), "LEMG", t(9, 50), "DA20", "EC-XXA", "X", "", t(1, 50), 1, "", "", "", t(1, 50), "", "SUELTA"],
+    ["", "28//11/20", "LEAX", t(11, 10), "LEAX", t(12, 15), "P28R", "EC-XXB", "X", "", t(1, 5), 7, "", "", t(1, 5)],
+    ["", dd(2021, 4, 13), "LEAX", t(20, 0), "LECU", t(21, 0), "BE76", "EC-XXC", "", "X", t(1, 0), 1, t(1, 0), t(1, 0), t(1, 0)],
+    ["", dd(2022, 7, 19), "", "", "", "", "", "", "", "", "", "", "", "", "", "", t(2, 0), "ERJ 190-E2 (XX-1)"],
+    ["", "", "", "", "", "", "", "TOTAL THIS PAGE", "", "", t(3, 55)], ["", "", "", "", "", "", "", "TOTAL TIME", "", "", t(3, 55)],
+    H2, ["", dd(2024, 10, 22), "GCXO", t(7, 4), "LEMD", t(9, 48), "E295", "EC-XXD", "", "", t(2, 44), t(2, 44), 1, "", t(2, 44), "", t(2, 44)],
+    ["", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", t(4, 0), "OPC"],
+    ["", "", "", "", "", "", "", "TOTAL THIS PAGE", "", "", t(2, 44), t(2, 44)]];
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "Hoja1");
+  const res = RXIO.parseWorkbook(XLSX.read(XLSX.write(wb, { type: "array", bookType: "xlsx" }), { type: "array" }));
+  const R = res.rows;
+  return { kind: res.kind, n: R.length, dates: R.map((r) => r.date).join(), fixed: res.issues.filter((i) => i.msg === "dateFixed").length,
+    noDate: res.issues.filter((i) => i.msg === "noDate").length, first: [R[0].off_time, R[0].total_min, R[0].se_min, R[0].dual_min, R[0].ldg_day, R[0].remarks].join(),
+    me: [R[2].me_min, R[2].night_min, R[2].ldg_night].join(), fstd: [R[3].kind, R[3].fstd_min, R[3].fstd_type].join(), mp: [R[4].mp_min, R[4].total_min, R[4].cop_min, R[4].ifr_min, R[4].ldg_day].join() };
+});
+ok("Excel page-style logbook detected", xp.kind === "paper" && xp.n === 5, JSON.stringify(xp));
+ok("Excel: typo date repaired, undated row flagged", xp.dates === "2015-03-02,2020-11-28,2021-04-13,2022-07-19,2024-10-22" && xp.fixed === 1 && xp.noDate === 1, xp.dates);
+ok("Excel: columns follow each page header", xp.first === "08:00,110,110,110,1,SUELTA" && xp.me === "60,60,1" && xp.fstd === "FSTD,120,ERJ 190-E2 (XX-1)" && xp.mp === "164,164,164,164,1", JSON.stringify(xp));
 // guía de uso: contenido ES/EN paralelo y PDF generado
 const g = await p.evaluate(() => ({ es: RX_HELP.es.sections.length, en: RX_HELP.en.sections.length, li: RX_HELP.es.sections.map((x) => x.li.length).join() === RX_HELP.en.sections.map((x) => x.li.length).join() }));
 ok("help guide ES/EN in sync", g.es >= 10 && g.es === g.en && g.li, JSON.stringify(g));
