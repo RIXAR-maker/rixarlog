@@ -954,7 +954,7 @@
         <div class="btnrow"><button class="btn" id="xPdf">${t("exportPdf")}</button><button class="btn" id="xXlsx">${t("exportXlsx")}</button>
           <button class="btn" id="xCsv">${t("exportCsv")}</button><button class="btn" id="xJson">${t("exportJson")}</button></div></div>
       <div class="panel"><h3>${t("importT")}</h3>
-        <div class="btnrow"><label class="btn">${t("importCsv")}<input type="file" id="iCsv" accept=".csv,.txt,text/csv" hidden></label>
+        <div class="btnrow"><label class="btn">${t("importCsv")}<input type="file" id="iCsv" accept=".csv,.txt,text/csv,.xlsx,.xlsm,.xls,.ods" hidden></label>
           <label class="btn">${t("importJson")}<input type="file" id="iJson" accept=".json,application/json" hidden></label></div>
         <p class="fine"><span class="chip amber">beta</span> ${t("importDev")}</p><div id="imp"></div>
         <h4>${t("batches")}</h4><div id="batches" class="fine">…</div></div>
@@ -1012,8 +1012,17 @@
       } catch (err) { alert(err.message); }
     });
     $("#iCsv").addEventListener("change", async (e) => {
-      const f = e.target.files[0]; if (!f) return;
-      const rows = IO.parseCsv(await f.text()); if (rows.length < 2) return;
+      const f = e.target.files[0]; if (!f) return; e.target.value = "";
+      let rows;
+      if (/\.(xlsx|xlsm|xls|ods)$/i.test(f.name)) {
+        try {
+          await window.RXLoad("xlsx");
+          const res = IO.parseWorkbook(window.XLSX.read(new Uint8Array(await f.arrayBuffer()), { type: "array" }));
+          if (res.kind === "paper") { showPaper(f, res); return; }
+          rows = res.rows;
+        } catch (err) { alert(err.message); return; }
+      } else rows = IO.parseCsv(await f.text());
+      if (rows.length < 2) return;
       const head = rows[0]; const m = IO.guessMapping(head);
       const fields = IO.FIELDS.filter((x) => x !== "id");
       $("#imp").innerHTML = `<p><b>${h(f.name)}</b> · ${rows.length - 1} ${t("entries")}</p>
@@ -1025,8 +1034,21 @@
       const pv = () => { const b = build(); const bad = b.filter((r) => R.checks(r).length).length; $("#prev").textContent = `${b.length} ${t("entries")} · ${bad} ⚠ · ${b[0] ? desc(b[0]) : ""}`; };
       $$("#imp select").forEach((s) => s.addEventListener("change", pv)); pv();
       $("#go").textContent = t("reviewImport");
-      $("#go").addEventListener("click", () => reviewImport(build(), { filename: f.name, source: "csv" }));
+      $("#go").addEventListener("click", () => reviewImport(build(), { filename: f.name, source: /\.csv$|\.txt$/i.test(f.name) ? "csv" : "xlsx" }));
     });
+    // Excel con formato de libro por páginas: columnas detectadas solas, se muestran avisos fila a fila
+    function showPaper(f, res) {
+      const n = (k) => res.rows.filter((r) => r.kind === k).length;
+      const fixed = res.issues.filter((i) => i.msg === "dateFixed"), manual = res.issues.filter((i) => i.msg !== "dateFixed");
+      const bad = res.rows.filter((r) => R.checks(r).length).length;
+      const li = (L) => L.map((i) => `<li>${t("row")} ${i.row}: ${t("imp_" + i.msg)}${i.info ? ` (${h(i.info)})` : ""}</li>`).join("");
+      $("#imp").innerHTML = `<p><b>${h(f.name)}</b> · ${h(res.sheet)}</p>
+        <p><span class="chip green">${t("fmtPaper")}</span> ${res.pages} ${t("pages")} · ${n("FLT")} ${t("fltsLc")} · ${n("FSTD")} FSTD · ${bad} ⚠</p>
+        ${fixed.length ? `<details><summary>${t("impFixed")} (${fixed.length})</summary><ul class="fine">${li(fixed)}</ul></details>` : ""}
+        ${manual.length ? `<details open><summary>${t("impManual")} (${manual.length})</summary><ul class="fine">${li(manual)}</ul></details>` : ""}
+        <button class="btn primary" id="go">${t("reviewImport")}</button>`;
+      $("#go").addEventListener("click", () => reviewImport(res.rows, { filename: f.name, source: "xlsx" }));
+    }
   };
 
 
