@@ -53,6 +53,18 @@ const fx = await p.evaluate(() => {
 });
 ok("identical FSTD sessions in file all kept", fx.a === "new:keep,fileprob:keep", fx.a);
 ok("re-import adds only the missing FSTD copy", fx.b === "same:skip,fileprob:keep,new:keep", fx.b);
+// edición en bloque: PIC y aterrizajes PF (día/noche por el sol), sin sobrescribir lo ya relleno
+const bk = await p.evaluate(() => {
+  const APT = { LEMD: ["Madrid", 40.4934, -3.5722], GCLP: ["Gran Canaria", 27.9319, -15.3866] };
+  const F = (x) => ({ kind: "FLT", date: "2026-11-20", dep: "LEMD", arr: "GCLP", total_min: 167, ldg_day: 0, ldg_night: 0, ...x });
+  const rows = [F({ id: "a", off_time: "16:05", on_time: "18:52" }), F({ id: "b", off_time: "08:00", on_time: "10:47", pic_name: "CPT X" }),
+    F({ id: "c", off_time: "08:00", on_time: "10:47", ldg_day: 1 }), { kind: "FSTD", id: "d", date: "2026-01-01", fstd_min: 240 }];
+  const out = RXIO.bulkPatch(rows, { pic_name: "CPT Y", ldg: "pf", fstd_type: "FFS E2", onlyEmpty: true }, (c) => APT[c]);
+  const g = (id) => out.find((r) => r.id === id) || {};
+  const pm = RXIO.bulkPatch([F({ id: "e", ldg_day: 1, pf: true })], { ldg: "pm", onlyEmpty: false }, (c) => APT[c])[0];
+  return { n: out.length, a: [g("a").pic_name, g("a").ldg_night, g("a").to_day].join(), b: [g("b").pic_name, g("b").ldg_day].join(), c: [g("c").pic_name, g("c").ldg_day].join(), d: g("d").fstd_type, pm: [pm.pf, pm.ldg_day].join() };
+});
+ok("bulk edit fills only empty fields, night landing by sun", bk.n === 4 && bk.a === "CPT Y,1,1" && bk.b === "CPT X,1" && bk.c === "CPT Y,1" && bk.d === "FFS E2" && bk.pm === "false,0", JSON.stringify(bk));
 const dur = await p.evaluate(() => [RXIO.parseDur("1:35"), RXIO.parseDur("1.5"), RXIO.parseDur("90", "min"), RXIO.hm(605)]);
 ok("duration parsing", JSON.stringify(dur) === JSON.stringify([95, 90, 90, "10:05"]), JSON.stringify(dur));
 // Excel tipo libro por páginas: cabeceras repetidas que cambian de columnas, filas de totales, FSTD, fecha mal tecleada

@@ -99,6 +99,7 @@
   function applyOutboxLocally() {
     for (const op of S.outbox()) {
       const list = S[op.table]; if (!list) continue;
+      if (op.op === "upsertMany") { for (const row of op.rows) { const j = list.findIndex((x) => x.id === row.id); if (j >= 0) list[j] = { ...list[j], ...row }; else list.push(row); } continue; }
       const i = list.findIndex((x) => x.id === op.row.id);
       if (op.op === "delete") { if (i >= 0) list.splice(i, 1); }
       else if (i >= 0) list[i] = { ...list[i], ...op.row }; else list.push(op.row);
@@ -117,7 +118,7 @@
     for (let op = S.outbox()[0]; op; op = S.outbox()[0]) {
       const { error } = op.op === "delete"
         ? await sb.from(op.table).delete().eq("id", op.row.id)
-        : await sb.from(op.table).upsert(op.row);
+        : await sb.from(op.table).upsert(op.op === "upsertMany" ? op.rows : op.row);
       const drop = () => setOutbox(S.outbox().filter((x) => x.oid !== op.oid));
       if (error) {
         console.error(error);
@@ -149,6 +150,20 @@
     const o = S.outbox(); o.push({ op: "upsert", table, row, oid: uuid() }); setOutbox(o);
     S.flush(); // en segundo plano: la interfaz no espera a la red
     return local;
+  };
+  // edición en bloque: cambia muchas anotaciones a la vez (lotes de 200 en la cola, también sin conexión)
+  S.saveMany = async (table, rows) => {
+    const list = S[table]; const out = [];
+    for (let row of rows) {
+      row = { ...row, user_id: S.user.id }; delete row.updated_at;
+      const i = list.findIndex((x) => x.id === row.id); if (i < 0) continue;
+      list[i] = { ...list[i], ...row }; out.push(row);
+    }
+    if (table === "entries") S.sortEntries();
+    cache(); emit();
+    const o = S.outbox(); for (let k = 0; k < out.length; k += 200) o.push({ op: "upsertMany", table, rows: out.slice(k, k + 200), oid: uuid() });
+    setOutbox(o); S.flush();
+    return out.length;
   };
   S.remove = async (table, id) => {
     const list = S[table]; const i = list.findIndex((x) => x.id === id); if (i >= 0) list.splice(i, 1);
