@@ -26,7 +26,7 @@ window.RX_HELP = {
         "Filtra por **Todo / Vuelos / FSTD**, busca por fecha, aeropuerto, matrícula o nombre, y elige el año.",
         "Cada mes muestra sus totales. Toca una anotación para verla o editarla.",
         "Un aviso rojo en una anotación indica que algún control no cuadra (p. ej. la suma de funciones no da el total o falta el nombre del PIC).",
-        "El botón **⋯** reúne: Firmar varias, PDF EASA, Excel, CSV y Nueva anotación."] },
+        "El botón **⋯** reúne: Firmar varias, Editar en bloque, PDF EASA, Excel, CSV y Nueva anotación.", "**Editar en bloque:** filtra (por año o búsqueda), pulsa Seleccionar todas y rellena de una vez el nombre del PIC, los aterrizajes (pilot flying, día o noche según el sol, o pilot monitoring) o el tipo de FSTD. Por defecto solo rellena lo vacío y nunca toca anotaciones firmadas."] },
       { h: "5. Panel y avisos", li: [
         "Arriba ves tus horas totales, las de los últimos 90 días y tu último vuelo.",
         "**Avisos** agrupa lo importante: recencia FCL.060 (3 despegues y aterrizajes en 90 días), documentos que caducan, firmas de formación pendientes, avisos de integridad y copia de seguridad antigua.",
@@ -108,7 +108,7 @@ window.RX_HELP = {
         "Filter by **All / Flights / FSTD**, search by date, airport, registration or name, and pick the year.",
         "Each month shows its totals. Tap an entry to view or edit it.",
         "A red flag on an entry means a check does not add up (e.g. functions don't sum to total, or PIC name is missing).",
-        "The **⋯** button holds: Sign several, EASA PDF, Excel, CSV and New entry."] },
+        "The **⋯** button holds: Sign several, Bulk edit, EASA PDF, Excel, CSV and New entry.", "**Bulk edit:** filter (by year or search), press Select all and fill in at once the PIC name, landings (pilot flying, day or night from the sun, or pilot monitoring) or the FSTD type. By default it only fills empty fields and never touches signed entries."] },
       { h: "5. Dashboard and alerts", li: [
         "At the top: total hours, last 90 days and your last flight.",
         "**Alerts** gathers what matters: FCL.060 recency (3 take-offs and landings in 90 days), expiring documents, pending training signatures, integrity warnings and an old backup.",

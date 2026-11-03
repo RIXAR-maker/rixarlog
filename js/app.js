@@ -426,11 +426,13 @@
       b.title = st2.invalid ? t("sigInvalid") : `${t("signed")} (${st2.valid})`; }
   }
 
-  let selMode = false; const sel = new Set();
+  let selMode = ""; const sel = new Set(); let lastRows = []; // selMode: "" | "sign" | "edit"
   VIEWS.logbook = (el) => {
     const years = [...new Set(R.entries.map((r) => r.date.slice(0, 4)))].sort().reverse();
     el.innerHTML = `
-      ${selMode ? `<div class="panel selhead"><div><b>✍ ${t("signMany")}</b><small>${t("selectHint")}</small></div></div>` : `
+      ${selMode ? `<div class="panel selhead"><div><b>${selMode === "edit" ? "✏️ " + t("bulkEdit") : "✍ " + t("signMany")}</b><small>${t(selMode === "edit" ? "bulkHint" : "selectHint")}</small></div>
+        ${selMode === "edit" ? `<div class="btnrow" style="flex-direction:row;margin-top:.5rem"><button class="btn small" id="selAll">${t("selAll")}</button><button class="btn small" id="selNone">${t("selNone")}</button></div>` : ""}</div>` : ""}
+      ${selMode === "sign" ? "" : `
       <div class="toolbar panel">
         <div class="tb1"><div class="seg">${[["all", t("all")], ["FLT", t("flights")], ["FSTD", "FSTD"]].map(([k, l]) => `<button data-k="${k}" class="${logFilter.kind === k ? "on" : ""}">${l}</button>`).join("")}</div>
           <button class="btn icon" id="lbMenu" aria-label="${t("more")}">⋯</button></div>
@@ -440,13 +442,13 @@
       ${logFilter.ids && !selMode ? `<div class="panel fchip"><div><b>${h(logFilter.label || "")}</b><small>${t("filteredFromAlert")}</small></div>
         <div class="btnrow">${logFilter.sign ? `<button class="btn small primary" id="fSign">✍ ${t("signThese")}</button>` : ""}<button class="btn small" id="fClr">✕ ${t("clearFilter")}</button></div></div>` : ""}
       <div id="list"></div>
-      <div id="selBar" class="selbar" ${selMode ? "" : "hidden"}><span id="selN"></span><button class="btn" id="selX">${t("cancel")}</button><button class="btn primary" id="selGo">✍ ${t("sign")}</button></div>`;
+      <div id="selBar" class="selbar" ${selMode ? "" : "hidden"}><span id="selN"></span><button class="btn" id="selX">${t("cancel")}</button><button class="btn primary" id="selGo">${selMode === "edit" ? "✏️ " + t("edit") : "✍ " + t("sign")}</button></div>`;
     const draw = () => {
       const q = logFilter.q.toLowerCase();
       const idset = logFilter.ids ? new Set(logFilter.ids) : null;
       let rows = R.entries.filter((r) => (!idset || idset.has(r.id)) && (logFilter.kind === "all" || r.kind === logFilter.kind) && (!logFilter.year || r.date.startsWith(logFilter.year)) &&
         (!q || [dmy(r.date), r.dep, r.arr, r.ac_type, r.registration, r.pic_name, r.remarks, r.fstd_type].join(" ").toLowerCase().includes(q)));
-      const n = rows.length; const allRows = rows; rows = rows.slice().reverse().slice(0, logFilter.limit);
+      const n = rows.length; const allRows = rows; lastRows = rows; rows = rows.slice().reverse().slice(0, logFilter.limit);
       const mtot = new Map(); for (const r of allRows) { const k = r.date.slice(0, 7); const o = mtot.get(k) || { f: 0, s: 0, n: 0 }; o.f += r.total_min || 0; o.s += r.fstd_min || 0; o.n++; mtot.set(k, o); }
       const mlabel = (k) => new Date(k + "-01T00:00:00Z").toLocaleDateString(lang, { month: "long", year: "numeric", timeZone: "UTC" });
       const msum = (k) => { const o = mtot.get(k); return [o.f ? `<b>${hm(o.f)}</b>` : "", o.s ? `FSTD ${hm(o.s)}` : ""].filter(Boolean).join(" · "); };
@@ -471,22 +473,50 @@
     if ($("#yr")) $("#yr").addEventListener("change", (e) => { logFilter.year = e.target.value; draw(); });
     if ($("#q")) $("#q").addEventListener("input", (e) => { logFilter.q = e.target.value; draw(); });
     if ($("#lbMenu")) $("#lbMenu").addEventListener("click", () => modal(`<h3>${t("logbook")}</h3><div class="menu sheet">
-        <a href="#" data-m="sign">✍ <span>${t("signMany")}</span></a><a href="#" data-m="pdf">📄 <span>${t("exportPdf")}</span></a>
+        <a href="#" data-m="sign">✍ <span>${t("signMany")}</span></a><a href="#" data-m="edit">✏️ <span>${t("bulkEdit")}</span></a><a href="#" data-m="pdf">📄 <span>${t("exportPdf")}</span></a>
         <a href="#" data-m="xlsx">📊 <span>${t("exportXlsx")}</span></a><a href="#" data-m="csv">🗂 <span>${t("exportCsv")}</span></a>
         <a href="#entry/new">＋ <span>${t("newEntry")}</span></a></div>`, (o, close) => {
         $$("[data-m]", o).forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); close(); const m = a.dataset.m;
-          if (m === "sign") { selMode = true; sel.clear(); VIEWS.logbook(el); } else if (m === "pdf") IO.exportPdf(); else if (m === "xlsx") IO.exportXlsx(); else IO.exportCsv(); }));
+          if (m === "sign" || m === "edit") { selMode = m; sel.clear(); VIEWS.logbook(el); } else if (m === "pdf") IO.exportPdf(); else if (m === "xlsx") IO.exportXlsx(); else IO.exportCsv(); }));
       }));
     const clrF = () => { logFilter.ids = null; logFilter.label = ""; logFilter.sign = false; };
     if ($("#fClr")) $("#fClr").addEventListener("click", () => { clrF(); VIEWS.logbook(el); });
-    if ($("#fSign")) $("#fSign").addEventListener("click", () => { selMode = true; sel.clear(); logFilter.ids.forEach((i) => sel.add(i)); VIEWS.logbook(el); });
+    if ($("#fSign")) $("#fSign").addEventListener("click", () => { selMode = "sign"; sel.clear(); logFilter.ids.forEach((i) => sel.add(i)); VIEWS.logbook(el); });
     const updSel = () => { $("#selN").textContent = `${sel.size} ${t("selected")}`; $("#selGo").disabled = !sel.size; };
 
-    $("#selX").addEventListener("click", () => { selMode = false; sel.clear(); VIEWS.logbook(el); });
-    $("#selGo").addEventListener("click", () => signModal(R.entries.filter((r) => sel.has(r.id)), () => { selMode = false; sel.clear(); clrF(); VIEWS.logbook(el); }));
+    $("#selX").addEventListener("click", () => { selMode = ""; sel.clear(); VIEWS.logbook(el); });
+    const doneSel = () => { selMode = ""; sel.clear(); clrF(); VIEWS.logbook(el); };
+    $("#selGo").addEventListener("click", () => selMode === "edit" ? bulkModal(R.entries.filter((r) => sel.has(r.id)), doneSel)
+      : signModal(R.entries.filter((r) => sel.has(r.id)), doneSel));
+    if ($("#selAll")) $("#selAll").addEventListener("click", () => { lastRows.forEach((r) => sel.add(r.id)); draw(); updSel(); });
+    if ($("#selNone")) $("#selNone").addEventListener("click", () => { sel.clear(); draw(); updSel(); });
     updSel();
     draw();
   };
+  // edición en bloque: nombre del PIC, aterrizajes PF/PM y tipo de FSTD; las anotaciones firmadas no se tocan
+  function bulkModal(list, done) {
+    const signed = list.filter((r) => R.sigsFor(r.id).length), rows = list.filter((r) => !R.sigsFor(r.id).length);
+    const nF = rows.filter((r) => r.kind === "FLT").length, nX = rows.filter((r) => r.kind === "FSTD").length;
+    modal(`<h3>✏️ ${t("bulkEdit")}</h3>
+      <p class="fine">${nF} ${t("fltsLc")} · ${nX} FSTD${signed.length ? ` · <span class="chip amber">${signed.length} ${t("bulkSigned")}</span>` : ""}</p>
+      ${nF ? `<label>${t("picName")}<input id="bkP" autocomplete="off" placeholder="${t("bulkKeep")}"></label>
+      <label>${t("bulkLdg")}<select id="bkL"><option value="">${t("bulkKeep")}</option><option value="pf">${t("bulkPf")}</option><option value="pm">${t("bulkPm")}</option></select></label>` : ""}
+      ${nX ? `<label>${t("fstdType")}<input id="bkT" autocomplete="off" placeholder="${t("bulkKeep")}"></label>` : ""}
+      <label class="tg"><input type="checkbox" id="bkE" checked><span>${t("bulkOnlyEmpty")}</span></label>
+      <p class="fine" id="bkN"></p><p class="msg err" id="bkErr"></p>
+      <div class="factions"><span class="grow"></span><button class="btn" data-close>${t("cancel")}</button><button class="btn primary" id="bkGo">${t("save")}</button></div>`, (o, close) => {
+      const v = (id) => { const x = $(id, o); return x ? x.value.trim() : ""; };
+      const opts = () => ({ pic_name: v("#bkP"), ldg: v("#bkL"), fstd_type: v("#bkT"), onlyEmpty: $("#bkE", o).checked });
+      const calc = () => IO.bulkPatch(rows, opts(), apt);
+      const upd = () => { const n = calc().length; $("#bkN", o).textContent = `${n} ${t("bulkWill")}`; $("#bkGo", o).disabled = !n; };
+      $$("input,select", o).forEach((x) => x.addEventListener("input", upd)); $$("select,input[type=checkbox]", o).forEach((x) => x.addEventListener("change", upd)); upd();
+      $("#bkGo", o).addEventListener("click", async () => {
+        const ch = calc(); if (!ch.length) return;
+        try { const n = await R.saveMany("entries", ch); close(); toast(`${n} ${t("bulkDone")}`, "ok"); done && done(); }
+        catch (e) { $("#bkErr", o).textContent = e.message; }
+      });
+    });
+  }
   const roleOf = (r) => r.kind === "FSTD" ? "FSTD" : r.instr_min ? "INS" : r.picus ? "PICUS" : r.pic_min ? "PIC" : r.cop_min ? "COP" : r.dual_min ? "DUAL" : "—";
   const chk = (r) => { const e = R.checks(r); return e.length ? `<span class="warn" title="${h(e.map(t).join(" · "))}">!</span>` : `<span class="okmark">✓</span>`; };
   function rowHtml(r) {

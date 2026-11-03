@@ -416,6 +416,32 @@
     return { kind: "table", sheet: name, rows };
   }
 
+  // ---------- Edición en bloque: devuelve solo las anotaciones que cambian (completas, con los cambios aplicados)
+  // opts: { pic_name, ldg: "" | "pf" | "pm", fstd_type, onlyEmpty } · apt(icao) → [nombre, lat, lon] para día/noche
+  function bulkPatch(rows, opts, apt) {
+    const out = [];
+    for (const r0 of rows) {
+      const r = { ...r0 }; let ch = false;
+      const set = (k, v) => { if (r[k] !== v) { r[k] = v; ch = true; } };
+      if (r.kind === "FLT") {
+        if (opts.pic_name && (!opts.onlyEmpty || !r.pic_name)) set("pic_name", opts.pic_name);
+        const noLdg = !((r.ldg_day || 0) + (r.ldg_night || 0));
+        if (opts.ldg === "pf" && (!opts.onlyEmpty || noLdg)) {
+          let ln = false, tn = false;
+          const A = apt && apt(r.dep), B = apt && apt(r.arr);
+          if (A && B && r.off_time && r.on_time && window.RXSun) {
+            const n = window.RXSun.nightCalc(r.date, hhmm(r.off_time), hhmm(r.on_time), [A[1], A[2]], [B[1], B[2]]);
+            if (n) { ln = !!n.ldgNight; tn = !!n.toNight; }
+          } else if (r.night_min && r.night_min >= r.total_min) { ln = tn = true; }
+          set("pf", true); set("ldg_day", ln ? 0 : 1); set("ldg_night", ln ? 1 : 0); set("to_day", tn ? 0 : 1); set("to_night", tn ? 1 : 0);
+        }
+        if (opts.ldg === "pm" && (!opts.onlyEmpty || noLdg)) { set("pf", false); set("ldg_day", 0); set("ldg_night", 0); set("to_day", 0); set("to_night", 0); }
+      } else if (r.kind === "FSTD" && opts.fstd_type && (!opts.onlyEmpty || !r.fstd_type)) set("fstd_type", opts.fstd_type);
+      if (ch) out.push(r);
+    }
+    return out;
+  }
+
   // copia al dispositivo: menú compartir (iCloud Drive / Archivos) o descarga
   async function saveToDevice() {
     const files = [exportJson({ file: true }), await exportXlsx({ file: true })];
@@ -427,5 +453,5 @@
     return "downloaded";
   }
   window.RXIO = { saveToDevice, exportCsv, exportJson, exportXlsx, exportPdf, selectionPdf, selectionText, selectionData,
-    parseCsv, parseWorkbook, mapRows, guessMapping, normalize, parseDur, hm, hmBlank, hhmm, dmy, FIELDS, DUR };
+    parseCsv, parseWorkbook, bulkPatch, mapRows, guessMapping, normalize, parseDur, hm, hmBlank, hhmm, dmy, FIELDS, DUR };
 })();
