@@ -942,6 +942,9 @@
     });
   };
 
+  // filas por página del PDF EASA: valores que caben en A4 horizontal con totales y certificación
+  const PDF_ROWS = [10, 15, 20, 25, 30];
+  const nearestRows = (n) => PDF_ROWS.reduce((a, b) => (Math.abs(b - (n || 20)) < Math.abs(a - (n || 20)) ? b : a), 20);
   // ---------- AJUSTES
   VIEWS.settings = (el) => {
     const p = R.profile || {}; const s = st(); const tg = targets();
@@ -950,7 +953,7 @@
         <div class="themes">${["ecam", "fcom", "hybrid", "red"].map((k) => `<button class="theme-card ${(p.theme || "ecam") === k ? "on" : ""}" data-th="${k}"><i class="sw ${k}"><b></b><b></b><b></b></i><span>${t(k)}</span></button>`).join("")}</div>
         <div class="g3">
           <label>${t("language")}<select id="lg"><option value="es">Español</option><option value="en">English</option></select></label>
-          <label>${t("pdfRows")}<input id="rpp" type="number" min="10" max="40" value="${p.rows_per_page || 20}"></label>
+          <label>${t("pdfRows")}<select id="rpp">${PDF_ROWS.map((n) => `<option value="${n}" ${n === nearestRows(p.rows_per_page) ? "selected" : ""}>${n}</option>`).join("")}</select></label>
         </div></div>
       <div class="panel"><h3>${t("pilot")}</h3>
         <div class="g2">
@@ -969,7 +972,7 @@
         </div>
         <h4>${t("targets")}</h4>
         <div class="g5">${Object.keys(DEFAULT_TARGETS).map((k) => `<label>${k === "total" ? "Total" : k === "mp" ? "MP" : k === "pic" ? "PIC" : k === "night" ? t("night") : "IFR"} (h)<input type="number" min="0" data-tg="${k}" value="${tg[k]}"></label>`).join("")}</div>
-        <button class="btn primary" id="saveP">${t("save")}</button></div>
+        <p class="fine">${t("autoSaveHint")}</p></div>
       <div class="panel"><h3>${t("notifications")}</h3><div id="ntf"></div></div>
       <div class="panel"><h3>${t("backups")}</h3>
         <p class="fine">${(() => { const lb = lastBackup(); return lb ? `${t("lastBackup")}: ${new Date(lb.at).toLocaleString(lang)} (${lb.days} ${t("daysLeft")})` : t("backupNever"); })()}</p>
@@ -979,7 +982,7 @@
           <label>${t("backupTo")}<input id="bkTo" type="email" placeholder="${h(R.user.email)}" value="${h((s.backup || {}).email || "")}"></label>
         </div>
         <p class="fine">${t("backupInfo")}</p>
-        <div class="btnrow"><button class="btn primary" id="bkSave">${t("save")}</button><button class="btn" id="bkNow">${t("backupNow")}</button><button class="btn" id="bkDev2">${t("backupDevice")}</button></div></div>
+        <div class="btnrow"><button class="btn" id="bkNow">${t("backupNow")}</button><button class="btn" id="bkDev2">${t("backupDevice")}</button></div></div>
       <div class="panel"><h3>${t("exportT")}</h3>
         <div class="btnrow"><button class="btn" id="xPdf">${t("exportPdf")}</button><button class="btn" id="xXlsx">${t("exportXlsx")}</button>
           <button class="btn" id="xCsv">${t("exportCsv")}</button><button class="btn" id="xJson">${t("exportJson")}</button></div></div>
@@ -996,21 +999,24 @@
     $("#mySig").addEventListener("click", () => signModal(null, () => route(), { self: true }));
     collapsify(el);
     $("#bkFreq").value = (s.backup || {}).freq || "weekly";
-    $("#bkSave").addEventListener("click", async () => {
-      await R.saveProfile({ settings: { ...st(), backup: { enabled: $("#bkOn").checked, freq: $("#bkFreq").value, email: $("#bkTo").value.trim() || null } } });
-      toast(t("savedOk"), "ok"); });
+    // cada ajuste se guarda al cambiarlo (lee st() en el momento para no pisar otros ajustes)
+    const saved = () => toast(t("savedOk"), "ok");
+    const onChange = (sel, fn) => $$(sel, el).forEach((x) => x.addEventListener("change", async () => {
+      try { await fn(x); saved(); } catch (e) { toast(String(e.message || e), "err"); } }));
+    onChange("#bkOn, #bkFreq, #bkTo", () => R.saveProfile({ settings: { ...st(), backup: { enabled: $("#bkOn").checked, freq: $("#bkFreq").value, email: $("#bkTo").value.trim() || null } } }));
+    onChange("#rpp", (x) => R.saveProfile({ rows_per_page: Number(x.value) }));
+    onChange("#pn", (x) => { const w = $("header .who"); if (w) w.textContent = x.value.trim() || R.user.email; return R.saveProfile({ full_name: x.value.trim() }); });
+    onChange("#lt", (x) => R.saveProfile({ licence_type: x.value.trim() }));
+    onChange("#ln", (x) => R.saveProfile({ licence_number: x.value.trim() }));
+    onChange("#hb", (x) => { x.value = icao(x.value); return R.saveProfile({ home_base: x.value }); });
+    onChange("#dr, #di, #dp", () => R.saveProfile({ settings: { ...st(), defRole: $("#dr").value, defIfr: $("#di").checked, defPf: $("#dp").checked } }));
+    onChange("[data-tg]", () => { const tgN = {}; $$("[data-tg]", el).forEach((y) => (tgN[y.dataset.tg] = Number(y.value) || DEFAULT_TARGETS[y.dataset.tg]));
+      return R.saveProfile({ settings: { ...st(), targets: tgN } }); });
     $("#bkNow").addEventListener("click", (e) => sendBackupNow(e.currentTarget));
     $("#bkDev2").addEventListener("click", saveDevice);
     $("#lg").value = p.lang || lang;
     $$("[data-th]", el).forEach((b) => b.addEventListener("click", async () => { setTheme(b.dataset.th); $$("[data-th]", el).forEach((x) => x.classList.toggle("on", x === b)); await R.saveProfile({ theme: b.dataset.th }); }));
     $("#lg").addEventListener("change", async (e) => { setLang(e.target.value); await R.saveProfile({ lang: e.target.value }); shell(); route(); });
-    $("#saveP").addEventListener("click", async () => {
-      const targetsNew = {}; $$("[data-tg]", el).forEach((x) => (targetsNew[x.dataset.tg] = Number(x.value) || DEFAULT_TARGETS[x.dataset.tg]));
-      await R.saveProfile({ full_name: $("#pn").value.trim(), licence_type: $("#lt").value.trim(), licence_number: $("#ln").value.trim(),
-        home_base: icao($("#hb").value), rows_per_page: Math.min(40, Math.max(10, Number($("#rpp").value) || 20)),
-        settings: { ...s, defRole: $("#dr").value, defIfr: $("#di").checked, defPf: $("#dp").checked, targets: targetsNew } });
-      toast(t("savedOk"), "ok"); shell(); route();
-    });
     $("#xPdf").addEventListener("click", () => IO.exportPdf());
     $("#xXlsx").addEventListener("click", () => IO.exportXlsx());
     $("#xCsv").addEventListener("click", () => IO.exportCsv());

@@ -92,6 +92,14 @@ const xp = await p.evaluate(async () => {
 ok("Excel page-style logbook detected", xp.kind === "paper" && xp.n === 5, JSON.stringify(xp));
 ok("Excel: typo date repaired, undated row flagged", xp.dates === "2015-03-02,2020-11-28,2021-04-13,2022-07-19,2024-10-22" && xp.fixed === 1 && xp.noDate === 1, xp.dates);
 ok("Excel: columns follow each page header", xp.first === "08:00,110,110,110,1,SUELTA" && xp.me === "60,60,1" && xp.fstd === "FSTD,120,ERJ 190-E2 (XX-1)" && xp.mp === "164,164,164,164,1", JSON.stringify(xp));
+// PDF EASA: respeta las filas por página del perfil y el total cuadra
+const pdfp = await p.evaluate(async () => {
+  const keep = { e: RX.entries, pr: RX.profile }; const out = {};
+  RX.entries = Array.from({ length: 40 }, (_, i) => ({ id: "t" + i, kind: "FLT", date: "2026-01-" + String(1 + (i % 28)).padStart(2, "0"), dep: "LEMD", arr: "LEBL", off_time: "07:00", on_time: "08:10", ac_type: "A320", registration: "EC-AAA", mp_min: 70, total_min: 70, cop_min: 70, ldg_day: 1 }));
+  for (const n of [10, 20, 30]) { RX.profile = { ...(keep.pr || {}), rows_per_page: n };
+    const txt = await (await RXIO.exportPdf({ blob: true })).text(); out[n] = (txt.match(/\/Type \/Page[^s]/g) || []).length; }
+  RX.entries = keep.e; RX.profile = keep.pr; return out; });
+ok("EASA PDF honours rows per page", pdfp[10] === 4 && pdfp[20] === 2 && pdfp[30] === 2, JSON.stringify(pdfp));
 // guía de uso: contenido ES/EN paralelo y PDF generado
 const g = await p.evaluate(() => ({ es: RX_HELP.es.sections.length, en: RX_HELP.en.sections.length, li: RX_HELP.es.sections.map((x) => x.li.length).join() === RX_HELP.en.sections.map((x) => x.li.length).join() }));
 ok("help guide ES/EN in sync", g.es >= 10 && g.es === g.en && g.li, JSON.stringify(g));

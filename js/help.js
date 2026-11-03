@@ -68,6 +68,7 @@ window.RX_HELP = {
       { h: "13. Ajustes y cuenta", li: [
         "**Apariencia:** tema Cabina oscura (ECAM), Manual técnico (FCOM), Híbrido o Rojo aerolínea, e idioma español o inglés.",
         "**Objetivos de horas** para seguir tu progreso en el Panel.",
+        "**Filas por página en el PDF** (10, 15, 20, 25 o 30) en Apariencia. Todos los ajustes se guardan solos al cambiarlos; no hay botón Guardar.",
         "**Cambiar contraseña** y **Borrar mi cuenta**, que elimina de forma permanente la cuenta, los vuelos y el historial. Exporta antes una copia.",
         "Las secciones de Ajustes se pliegan; la app recuerda cuáles dejaste abiertas.",
         "En PC e iPad el menú lateral se queda fijo al bajar por la página. Con el botón de abajo («Plegar menú» / ›) lo reduces a iconos o lo despliegas; la app lo recuerda."] },
@@ -150,6 +151,7 @@ window.RX_HELP = {
       { h: "13. Settings and account", li: [
         "**Appearance:** Dark cockpit (ECAM), Technical manual (FCOM), Hybrid or Airline red themes, and Spanish or English.",
         "**Hour targets** to track progress on the Dashboard.",
+        "**Rows per PDF page** (10, 15, 20, 25 or 30) under Appearance. Every setting saves itself when changed; there is no Save button.",
         "**Change password** and **Delete my account**, which permanently removes account, flights and history. Export a backup first.",
         "Settings sections collapse; the app remembers which ones you left open.",
         "On PC and iPad the side menu stays fixed while you scroll. The button at the bottom (“Collapse menu” / ›) shrinks it to icons or expands it; the app remembers."] },
