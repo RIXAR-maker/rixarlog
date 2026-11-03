@@ -44,6 +44,15 @@ ok("in-file exact duplicate detected", r.st[1] === "filedup", r.st.join());
 ok("overlapping edited flight flagged", r.st[2] === "fileprob", r.st.join());
 ok("two different FSTD sessions both kept", r.st[3] === "new" && ["new", "fileprob"].includes(r.st[4]), r.st.join());
 ok("valid rows pass checks", r.checks[0] === 0, r.checks.join());
+// FSTD idénticas el mismo día: sesiones distintas posibles → se importan todas; al reimportar solo entra la que falta
+const fx = await p.evaluate(() => {
+  const S = (x) => ({ kind: "FSTD", date: "2022-08-02", fstd_min: 120, ...x });
+  const a = RXInt.classify([S(), S()], []).map((c) => c.status + ":" + c.action).join();
+  const b = RXInt.classify([S(), S(), S({ date: "2022-08-09" })], [{ ...S(), id: "x1" }]).map((c) => c.status + ":" + c.action).join();
+  return { a, b };
+});
+ok("identical FSTD sessions in file all kept", fx.a === "new:keep,fileprob:keep", fx.a);
+ok("re-import adds only the missing FSTD copy", fx.b === "same:skip,fileprob:keep,new:keep", fx.b);
 const dur = await p.evaluate(() => [RXIO.parseDur("1:35"), RXIO.parseDur("1.5"), RXIO.parseDur("90", "min"), RXIO.hm(605)]);
 ok("duration parsing", JSON.stringify(dur) === JSON.stringify([95, 90, 90, "10:05"]), JSON.stringify(dur));
 // Excel tipo libro por páginas: cabeceras repetidas que cambian de columnas, filas de totales, FSTD, fecha mal tecleada

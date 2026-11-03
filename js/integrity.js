@@ -38,13 +38,21 @@
   // clasifica filas a importar frente al libro existente y frente al propio archivo
   function classify(rows, existing) {
     const exSig = new Map(existing.map((r) => [sig(r), r]));
+    // FSTD: sin horas, dos sesiones iguales el mismo día pueden ser reales. Se cuentan: cada copia del archivo
+    // "consume" una idéntica del libro; las que sobran se importan (marcadas en ámbar para revisarlas).
+    const exFstd = new Map(); for (const r of existing) if (r.kind === "FSTD") { const k = sig(r); if (!exFstd.has(k)) exFstd.set(k, []); exFstd.get(k).push(r); }
+    const used = new Set();
     const idx = byDate(existing);
     const seen = new Map(); const seenIdx = new Map();
     return rows.map((r, i) => {
       const s = sig(r);
-      if (exSig.has(s)) return { row: r, status: "same", match: exSig.get(s), action: "skip" };
+      if (r.kind === "FSTD") {
+        const L = exFstd.get(s); if (L && L.length) { const mm = L.shift(); used.add(mm); seen.set(s, r); return { row: r, status: "same", match: mm, action: "skip" }; }
+        if (seen.has(s)) return { row: r, status: "fileprob", match: seen.get(s), action: "keep" };
+      }
+      if (exSig.has(s) && r.kind !== "FSTD") return { row: r, status: "same", match: exSig.get(s), action: "skip" };
       if (seen.has(s)) return { row: r, status: "filedup", match: seen.get(s), action: "skip" };
-      const m = near(idx, r.date).find((x) => probable(x, r) || probable(r, x));
+      const m = near(idx, r.date).find((x) => !used.has(x) && (probable(x, r) || probable(r, x)));
       const fm = !m && near(seenIdx, r.date).find((x) => probable(x, r) || probable(r, x));
       seen.set(s, r); if (!seenIdx.has(r.date)) seenIdx.set(r.date, []); seenIdx.get(r.date).push(r);
       if (m) return { row: r, status: "probable", match: m, action: "skip" };
